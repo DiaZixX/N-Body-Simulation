@@ -1,4 +1,4 @@
-use crate::geom::vec2::Vec2;
+use crate::geom::Vec2;
 use std::fmt;
 
 #[derive(Clone, Copy, Debug)]
