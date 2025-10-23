@@ -1,4 +1,5 @@
 use super::{Node, Quad};
+use crate::body::Body;
 use crate::geom::Vec2;
 use std::fmt;
 
@@ -132,87 +133,208 @@ impl Quadtree {
 
         acc
     }
-}
 
-impl fmt::Display for Quadtree {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.nodes.is_empty() {
-            writeln!(f, "<empty quadtree>")?;
-            return Ok(());
+    /// Return a printable wrapper, including the bodies
+    pub fn display_with_bodies<'a>(&'a self, bodies: &'a [Body]) -> impl fmt::Display + 'a {
+        struct Wrapper<'a> {
+            tree: &'a Quadtree,
+            bodies: &'a [Body],
         }
 
-        writeln!(f, "Quadtree (nodes: {}):", self.nodes.len())?;
+        impl<'a> fmt::Display for Wrapper<'a> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let tree = self.tree;
+                let bodies = self.bodies;
 
-        fn recurse(
-            f: &mut fmt::Formatter<'_>,
-            tree: &Quadtree,
-            node_idx: usize,
-            prefix: &str,
-            is_last: bool,
-        ) -> fmt::Result {
-            let node = &tree.nodes[node_idx];
+                if tree.nodes.is_empty() {
+                    writeln!(f, "<empty quadtree>")?;
+                    return Ok(());
+                }
 
-            let connector = if prefix.is_empty() {
-                "" // Root
-            } else if is_last {
-                "└─ "
-            } else {
-                "├─ "
-            };
+                writeln!(f, "Quadtree (nodes: {}):", tree.nodes.len())?;
 
-            writeln!(
-                f,
-                "{}{}[{}] quad(center={:.3},{:.3}, size={:.3}) mass={:.6} pos={:.3},{:.3} {}",
-                prefix,
-                connector,
-                node_idx,
-                node.quad.center.x,
-                node.quad.center.y,
-                node.quad.size,
-                node.mass,
-                node.pos.x,
-                node.pos.y,
-                if node.is_leaf() {
-                    if node.is_empty() {
-                        "empty leaf"
+                fn recurse(
+                    f: &mut fmt::Formatter<'_>,
+                    tree: &Quadtree,
+                    node_idx: usize,
+                    bodies: &[Body],
+                    prefix: &str,
+                    is_last: bool,
+                ) -> fmt::Result {
+                    let node = &tree.nodes[node_idx];
+
+                    let connector = if prefix.is_empty() {
+                        "" // racine
+                    } else if is_last {
+                        "└─ "
                     } else {
-                        "leaf"
-                    }
-                } else {
-                    "branch"
-                }
-            )?;
+                        "├─ "
+                    };
 
-            // Recursive exploration on branch
-            if node.is_branch() {
-                let base = node.children;
-                let child_prefix = if prefix.is_empty() {
-                    String::new()
-                } else if is_last {
-                    format!("{}   ", prefix)
-                } else {
-                    format!("{}│  ", prefix)
-                };
+                    writeln!(
+                        f,
+                        "{}{}[{}] quad(center={:.3},{:.3}, size={:.3}) mass={:.6} pos={:.3},{:.3} {}",
+                        prefix,
+                        connector,
+                        node_idx,
+                        node.quad.center.x,
+                        node.quad.center.y,
+                        node.quad.size,
+                        node.mass,
+                        node.pos.x,
+                        node.pos.y,
+                        if node.is_leaf() {
+                            if node.is_empty() {
+                                "empty leaf"
+                            } else {
+                                "leaf"
+                            }
+                        } else {
+                            "branch"
+                        }
+                    )?;
 
-                for i in 0..4 {
-                    let idx = base + i;
-                    if idx >= tree.nodes.len() {
-                        writeln!(
-                            f,
-                            "{}{}[{}] <missing>",
-                            child_prefix,
-                            if i == 3 { "└─ " } else { "├─ " },
-                            idx
-                        )?;
-                        continue;
+                    // Si feuille, afficher bodies contenus
+                    if node.is_leaf() {
+                        let next_prefix = if prefix.is_empty() {
+                            String::from("   ")
+                        } else if is_last {
+                            format!("{}   ", prefix)
+                        } else {
+                            format!("{}│  ", prefix)
+                        };
+
+                        let mut count = 0;
+                        for body in bodies {
+                            if node.quad.contains(body.pos) {
+                                // Maybe &body.pos ??
+                                count += 1;
+                                writeln!(f, "{}└─ {}", next_prefix, body)?;
+                            }
+                        }
+
+                        if count == 0 && node.is_empty() {
+                            writeln!(f, "{}└─ <no bodies>", next_prefix)?;
+                        }
                     }
-                    recurse(f, tree, idx, &child_prefix, i == 3)?;
+
+                    // Si branche, descente récursive
+                    if node.is_branch() {
+                        let base = node.children;
+                        let child_prefix = if prefix.is_empty() {
+                            String::new()
+                        } else if is_last {
+                            format!("{}   ", prefix)
+                        } else {
+                            format!("{}│  ", prefix)
+                        };
+
+                        for i in 0..4 {
+                            let idx = base + i;
+                            if idx >= tree.nodes.len() {
+                                writeln!(
+                                    f,
+                                    "{}{}[{}] <missing>",
+                                    child_prefix,
+                                    if i == 3 { "└─ " } else { "├─ " },
+                                    idx
+                                )?;
+                                continue;
+                            }
+                            recurse(f, tree, idx, bodies, &child_prefix, i == 3)?;
+                        }
+                    }
+
+                    Ok(())
                 }
+
+                recurse(f, tree, Quadtree::ROOT, bodies, "", true)
             }
-
-            Ok(())
         }
 
-        recurse(f, self, Self::ROOT, "", true)
+        Wrapper { tree: self, bodies }
     }
 }
+
+// impl fmt::Display for Quadtree {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         if self.nodes.is_empty() {
+//             writeln!(f, "<empty quadtree>")?;
+//             return Ok(());
+//         }
+//
+//         writeln!(f, "Quadtree (nodes: {}):", self.nodes.len())?;
+//
+//         fn recurse(
+//             f: &mut fmt::Formatter<'_>,
+//             tree: &Quadtree,
+//             node_idx: usize,
+//             prefix: &str,
+//             is_last: bool,
+//         ) -> fmt::Result {
+//             let node = &tree.nodes[node_idx];
+//
+//             let connector = if prefix.is_empty() {
+//                 "" // Root
+//             } else if is_last {
+//                 "└─ "
+//             } else {
+//                 "├─ "
+//             };
+//
+//             writeln!(
+//                 f,
+//                 "{}{}[{}] quad(center={:.3},{:.3}, size={:.3}) mass={:.6} pos={:.3},{:.3} {}",
+//                 prefix,
+//                 connector,
+//                 node_idx,
+//                 node.quad.center.x,
+//                 node.quad.center.y,
+//                 node.quad.size,
+//                 node.mass,
+//                 node.pos.x,
+//                 node.pos.y,
+//                 if node.is_leaf() {
+//                     if node.is_empty() {
+//                         "empty leaf"
+//                     } else {
+//                         "leaf"
+//                     }
+//                 } else {
+//                     "branch"
+//                 }
+//             )?;
+//
+//             // Recursive exploration on branch
+//             if node.is_branch() {
+//                 let base = node.children;
+//                 let child_prefix = if prefix.is_empty() {
+//                     String::new()
+//                 } else if is_last {
+//                     format!("{}   ", prefix)
+//                 } else {
+//                     format!("{}│  ", prefix)
+//                 };
+//
+//                 for i in 0..4 {
+//                     let idx = base + i;
+//                     if idx >= tree.nodes.len() {
+//                         writeln!(
+//                             f,
+//                             "{}{}[{}] <missing>",
+//                             child_prefix,
+//                             if i == 3 { "└─ " } else { "├─ " },
+//                             idx
+//                         )?;
+//                         continue;
+//                     }
+//                     recurse(f, tree, idx, &child_prefix, i == 3)?;
+//                 }
+//             }
+//
+//             Ok(())
+//         }
+//
+//         recurse(f, self, Self::ROOT, "", true)
+//     }
+// }

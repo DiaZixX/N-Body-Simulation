@@ -45,4 +45,9 @@ impl Quad {
 
         Self { center, size }
     }
+
+    pub fn contains(&self, pos: Vec2) -> bool {
+        let diff = self.center - pos;
+        diff.x.abs() <= self.size / 2. && diff.y.abs() <= self.size / 2.
+    }
 }
