@@ -2,6 +2,7 @@
 name = "n-body-simulation"
 version = "0.1.0"
 edition = "2024"
+build = "build.rs"
 
 [dependencies]
 wgpu = "0.19.3"        # version stable compatible Vulkan/Metal/DX12 (2025)
@@ -11,3 +12,8 @@ glam = "0.29.0"        # lib math pour vecteurs et matrices (rapide)
 bytemuck = "1.15.0"    # conversion des structs en bytes pour le GPU
 env_logger = "0.11.3"  # logs utiles pour debug wgpu
 log = "0.4.22"
+rand = "0.8"
+rand_distr = "0.4"
+
+[build-dependencies]
+cc = "1.0"
