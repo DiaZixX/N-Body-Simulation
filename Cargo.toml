@@ -5,7 +5,7 @@ edition = "2024"
 build = "build.rs"
 
 [dependencies]
-wgpu = "0.19.3"        # version stable compatible Vulkan/Metal/DX12 (2025)
+wgpu = "22"        # version stable compatible Vulkan/Metal/DX12 (2025)
 winit = "0.30.5"       # gestion des fenêtres et événements
 pollster = "0.3.0"     # utilitaire pour bloquer les futures async
 glam = "0.29.0"        # lib math pour vecteurs et matrices (rapide)
