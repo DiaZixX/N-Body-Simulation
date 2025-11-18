@@ -824,6 +824,7 @@ name = "n-body-simulation"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytemuck",
  "cc",
  "env_logger",
  "log",
