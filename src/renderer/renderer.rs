@@ -81,27 +81,55 @@ fn generate_circle_vertices(
     (vertices, indices)
 }
 
-// Générer plusieurs cercles
+// Générer plusieurs cercles - Thème espace/étoiles
 fn generate_circles() -> (Vec<Vertex>, Vec<u16>) {
     let mut all_vertices = Vec::new();
     let mut all_indices = Vec::new();
 
-    // Cercle 1 - Rouge au centre
-    let (vertices1, indices1) = generate_circle_vertices(0.0, 0.0, 0.3, 32, [1.0, 0.0, 0.0]);
+    // Grande étoile blanche brillante au centre
+    let (vertices1, indices1) = generate_circle_vertices(0.0, 0.0, 0.15, 32, [1.0, 1.0, 0.95]);
     all_vertices.extend(vertices1);
     all_indices.extend(indices1);
 
-    // Cercle 2 - Vert en haut à droite
+    // Étoile jaune-orange (comme le soleil)
     let offset = all_vertices.len() as u16;
-    let (vertices2, indices2) = generate_circle_vertices(0.4, 0.4, 0.2, 32, [0.0, 1.0, 0.0]);
+    let (vertices2, indices2) = generate_circle_vertices(0.5, 0.5, 0.12, 32, [1.0, 0.85, 0.3]);
     all_vertices.extend(vertices2);
     all_indices.extend(indices2.iter().map(|&i| i + offset));
 
-    // Cercle 3 - Bleu en bas à gauche
+    // Étoile bleu-blanc (étoile chaude)
     let offset = all_vertices.len() as u16;
-    let (vertices3, indices3) = generate_circle_vertices(-0.4, -0.4, 0.25, 32, [0.0, 0.0, 1.0]);
+    let (vertices3, indices3) = generate_circle_vertices(-0.6, 0.3, 0.08, 32, [0.7, 0.85, 1.0]);
     all_vertices.extend(vertices3);
     all_indices.extend(indices3.iter().map(|&i| i + offset));
+
+    // Petite étoile blanche
+    let offset = all_vertices.len() as u16;
+    let (vertices4, indices4) = generate_circle_vertices(0.7, -0.2, 0.05, 24, [0.95, 0.95, 1.0]);
+    all_vertices.extend(vertices4);
+    all_indices.extend(indices4.iter().map(|&i| i + offset));
+
+    // Étoile rouge (étoile froide/géante rouge)
+    let offset = all_vertices.len() as u16;
+    let (vertices5, indices5) = generate_circle_vertices(-0.4, -0.5, 0.1, 32, [1.0, 0.4, 0.3]);
+    all_vertices.extend(vertices5);
+    all_indices.extend(indices5.iter().map(|&i| i + offset));
+
+    // Petites étoiles dispersées
+    let offset = all_vertices.len() as u16;
+    let (vertices6, indices6) = generate_circle_vertices(0.3, -0.7, 0.04, 16, [0.9, 0.9, 0.95]);
+    all_vertices.extend(vertices6);
+    all_indices.extend(indices6.iter().map(|&i| i + offset));
+
+    let offset = all_vertices.len() as u16;
+    let (vertices7, indices7) = generate_circle_vertices(-0.8, -0.1, 0.06, 20, [0.85, 0.9, 1.0]);
+    all_vertices.extend(vertices7);
+    all_indices.extend(indices7.iter().map(|&i| i + offset));
+
+    let offset = all_vertices.len() as u16;
+    let (vertices8, indices8) = generate_circle_vertices(0.15, 0.75, 0.045, 16, [1.0, 0.95, 0.8]);
+    all_vertices.extend(vertices8);
+    all_indices.extend(indices8.iter().map(|&i| i + offset));
 
     (all_vertices, all_indices)
 }
@@ -303,9 +331,9 @@ impl State {
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.1,
-                                g: 0.2,
-                                b: 0.3,
+                                r: 0.02,
+                                g: 0.02,
+                                b: 0.08,
                                 a: 1.0,
                             }),
                             store: wgpu::StoreOp::Store,
