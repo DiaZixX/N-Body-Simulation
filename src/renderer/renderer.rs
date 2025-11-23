@@ -42,30 +42,69 @@ impl Vertex {
     }
 }
 
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-0.0868241, 0.49240386, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // A
-    Vertex {
-        position: [-0.49513406, 0.06958647, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // B
-    Vertex {
-        position: [-0.21918549, -0.44939706, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // C
-    Vertex {
-        position: [0.35966998, -0.3473291, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // D
-    Vertex {
-        position: [0.44147372, 0.2347359, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // E
-];
+// Fonction pour générer les vertices d'un cercle
+fn generate_circle_vertices(
+    center_x: f32,
+    center_y: f32,
+    radius: f32,
+    segments: u32,
+    color: [f32; 3],
+) -> (Vec<Vertex>, Vec<u16>) {
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
 
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
+    // Centre du cercle
+    vertices.push(Vertex {
+        position: [center_x, center_y, 0.0],
+        color,
+    });
+
+    // Générer les points sur le périmètre du cercle
+    for i in 0..=segments {
+        let angle = (i as f32 / segments as f32) * 2.0 * std::f32::consts::PI;
+        let x = center_x + radius * angle.cos();
+        let y = center_y + radius * angle.sin();
+
+        vertices.push(Vertex {
+            position: [x, y, 0.0],
+            color,
+        });
+    }
+
+    // Générer les indices pour les triangles
+    for i in 0..segments {
+        indices.push(0); // Centre
+        indices.push((i + 1) as u16);
+        indices.push((i + 2) as u16);
+    }
+
+    (vertices, indices)
+}
+
+// Générer plusieurs cercles
+fn generate_circles() -> (Vec<Vertex>, Vec<u16>) {
+    let mut all_vertices = Vec::new();
+    let mut all_indices = Vec::new();
+
+    // Cercle 1 - Rouge au centre
+    let (vertices1, indices1) = generate_circle_vertices(0.0, 0.0, 0.3, 32, [1.0, 0.0, 0.0]);
+    all_vertices.extend(vertices1);
+    all_indices.extend(indices1);
+
+    // Cercle 2 - Vert en haut à droite
+    let offset = all_vertices.len() as u16;
+    let (vertices2, indices2) = generate_circle_vertices(0.4, 0.4, 0.2, 32, [0.0, 1.0, 0.0]);
+    all_vertices.extend(vertices2);
+    all_indices.extend(indices2.iter().map(|&i| i + offset));
+
+    // Cercle 3 - Bleu en bas à gauche
+    let offset = all_vertices.len() as u16;
+    let (vertices3, indices3) = generate_circle_vertices(-0.4, -0.4, 0.25, 32, [0.0, 0.0, 1.0]);
+    all_vertices.extend(vertices3);
+    all_indices.extend(indices3.iter().map(|&i| i + offset));
+
+    (all_vertices, all_indices)
+}
 
 // This store the state of our simulation
 pub struct State {
@@ -188,19 +227,22 @@ impl State {
             cache: None,
         });
 
+        // Générer les cercles
+        let (vertices, indices) = generate_circles();
+
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
+            contents: bytemuck::cast_slice(&vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
+            contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
 
-        let num_indices = INDICES.len() as u32;
+        let num_indices = indices.len() as u32;
 
         Ok(Self {
             surface,
