@@ -134,6 +134,122 @@ fn generate_circles() -> (Vec<Vertex>, Vec<u16>) {
     (all_vertices, all_indices)
 }
 
+// Fonction pour générer les vertices d'une sphère
+fn generate_sphere_vertices(
+    center_x: f32,
+    center_y: f32,
+    center_z: f32,
+    radius: f32,
+    stacks: u32,  // Nombre de divisions verticales
+    sectors: u32, // Nombre de divisions horizontales
+    color: [f32; 3],
+) -> (Vec<Vertex>, Vec<u16>) {
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
+
+    // Générer les vertices de la sphère
+    for i in 0..=stacks {
+        let stack_angle =
+            std::f32::consts::PI / 2.0 - (i as f32 * std::f32::consts::PI / stacks as f32);
+        let xy = radius * stack_angle.cos();
+        let z = radius * stack_angle.sin();
+
+        for j in 0..=sectors {
+            let sector_angle = j as f32 * 2.0 * std::f32::consts::PI / sectors as f32;
+            let x = xy * sector_angle.cos();
+            let y = xy * sector_angle.sin();
+
+            vertices.push(Vertex {
+                position: [center_x + x, center_y + y, center_z + z],
+                color,
+            });
+        }
+    }
+
+    // Générer les indices pour les triangles
+    for i in 0..stacks {
+        let k1 = i * (sectors + 1);
+        let k2 = k1 + sectors + 1;
+
+        for j in 0..sectors {
+            if i != 0 {
+                indices.push((k1 + j) as u16);
+                indices.push((k2 + j) as u16);
+                indices.push((k1 + j + 1) as u16);
+            }
+
+            if i != stacks - 1 {
+                indices.push((k1 + j + 1) as u16);
+                indices.push((k2 + j) as u16);
+                indices.push((k2 + j + 1) as u16);
+            }
+        }
+    }
+
+    (vertices, indices)
+}
+
+// Générer plusieurs sphères - Thème espace/étoiles
+fn generate_spheres() -> (Vec<Vertex>, Vec<u16>) {
+    let mut all_vertices = Vec::new();
+    let mut all_indices = Vec::new();
+
+    // Grande étoile blanche brillante au centre
+    let (vertices1, indices1) =
+        generate_sphere_vertices(0.0, 0.0, 0.0, 0.15, 16, 32, [1.0, 1.0, 0.95]);
+    all_vertices.extend(vertices1);
+    all_indices.extend(indices1);
+
+    // Étoile jaune-orange (comme le soleil)
+    let offset = all_vertices.len() as u16;
+    let (vertices2, indices2) =
+        generate_sphere_vertices(0.5, 0.5, 0.0, 0.12, 16, 32, [1.0, 0.85, 0.3]);
+    all_vertices.extend(vertices2);
+    all_indices.extend(indices2.iter().map(|&i| i + offset));
+
+    // Étoile bleu-blanc (étoile chaude)
+    let offset = all_vertices.len() as u16;
+    let (vertices3, indices3) =
+        generate_sphere_vertices(-0.6, 0.3, -0.2, 0.08, 12, 24, [0.7, 0.85, 1.0]);
+    all_vertices.extend(vertices3);
+    all_indices.extend(indices3.iter().map(|&i| i + offset));
+
+    // Petite étoile blanche
+    let offset = all_vertices.len() as u16;
+    let (vertices4, indices4) =
+        generate_sphere_vertices(0.7, -0.2, 0.1, 0.05, 10, 20, [0.95, 0.95, 1.0]);
+    all_vertices.extend(vertices4);
+    all_indices.extend(indices4.iter().map(|&i| i + offset));
+
+    // Étoile rouge (étoile froide/géante rouge)
+    let offset = all_vertices.len() as u16;
+    let (vertices5, indices5) =
+        generate_sphere_vertices(-0.4, -0.5, 0.3, 0.1, 14, 28, [1.0, 0.4, 0.3]);
+    all_vertices.extend(vertices5);
+    all_indices.extend(indices5.iter().map(|&i| i + offset));
+
+    // Petites étoiles dispersées
+    let offset = all_vertices.len() as u16;
+    let (vertices6, indices6) =
+        generate_sphere_vertices(0.3, -0.7, -0.1, 0.04, 8, 16, [0.9, 0.9, 0.95]);
+    all_vertices.extend(vertices6);
+    all_indices.extend(indices6.iter().map(|&i| i + offset));
+
+    let offset = all_vertices.len() as u16;
+    let (vertices7, indices7) =
+        generate_sphere_vertices(-0.8, -0.1, 0.2, 0.06, 10, 20, [0.85, 0.9, 1.0]);
+    all_vertices.extend(vertices7);
+    all_indices.extend(indices7.iter().map(|&i| i + offset));
+
+    let offset = all_vertices.len() as u16;
+    let (vertices8, indices8) =
+        generate_sphere_vertices(0.15, 0.75, -0.3, 0.045, 8, 16, [1.0, 0.95, 0.8]);
+    all_vertices.extend(vertices8);
+    all_indices.extend(indices8.iter().map(|&i| i + offset));
+
+    (all_vertices, all_indices)
+}
+
 struct Camera {
     eye: cgmath::Point3<f32>,
     target: cgmath::Point3<f32>,
@@ -333,7 +449,7 @@ impl State {
         });
 
         // Générer les cercles
-        let (vertices, indices) = generate_circles();
+        let (vertices, indices) = generate_spheres();
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -352,7 +468,7 @@ impl State {
         let camera = Camera {
             // position the camera 1 unit up and 2 units back
             // +z is out of the screen
-            eye: (0.0, 1.0, 2.0).into(),
+            eye: (0.0, 0.5, 3.0).into(),
             // have it look at the origin
             target: (0.0, 0.0, 0.0).into(),
             // which way is "up"
@@ -517,9 +633,9 @@ impl State {
                         resolve_target: None,
                         ops: wgpu::Operations {
                             load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.02,
-                                g: 0.02,
-                                b: 0.08,
+                                r: 0.00,
+                                g: 0.00,
+                                b: 0.02,
                                 a: 1.0,
                             }),
                             store: wgpu::StoreOp::Store,
