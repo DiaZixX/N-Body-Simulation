@@ -9,6 +9,9 @@ use winit::{
     window::Window,
 };
 
+use crate::body::Body;
+use crate::geom::Vec2;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
@@ -387,6 +390,35 @@ pub struct State {
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
+    // Structure pour les bodies
+    bodies: Vec<Body>,
+    dt: f32, // Pas de temps pour la simulation
+}
+
+fn bodies_to_vertices_indices(bodies: &[Body]) -> (Vec<Vertex>, Vec<u16>) {
+    let mut all_vertices = Vec::new();
+    let mut all_indices = Vec::new();
+
+    for body in bodies {
+        let offset = all_vertices.len() as u16;
+
+        // Générer un cercle/sphère pour chaque body
+        // Position normalisée (bodies sont dans [-1, 1])
+        let (vertices, indices) = generate_sphere_vertices(
+            body.pos.x,      // center_x
+            body.pos.y,      // center_y
+            0.0,             // center_z (plan z=0)
+            body.radius,     // radius
+            8,               // stacks (divisions verticales)
+            16,              // sectors (divisions horizontales)
+            [1.0, 1.0, 1.0], // couleur blanche
+        );
+
+        all_vertices.extend(vertices);
+        all_indices.extend(indices.iter().map(|&i| i + offset));
+    }
+
+    (all_vertices, all_indices)
 }
 
 impl State {
@@ -448,8 +480,19 @@ impl State {
             source: wgpu::ShaderSource::Wgsl(include_str!("./shader.wgsl").into()),
         });
 
+        use crate::generate_gaussian; // Assurez-vous que cette fonction est accessible
+        let bodies = generate_gaussian(
+            200,                 // nombre de bodies
+            Vec2::new(0.0, 0.0), // centre
+            0.3,                 // sigma
+            1.0,                 // masse
+            0.02,                // radius
+        );
+
+        // Convertir les bodies en vertices/indices
+        let (vertices, indices) = bodies_to_vertices_indices(&bodies);
         // Générer les cercles
-        let (vertices, indices) = generate_spheres();
+        // let (vertices, indices) = generate_spheres();
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -578,6 +621,8 @@ impl State {
             camera_uniform,
             camera_buffer,
             camera_bind_group,
+            bodies,
+            dt: 0.001,
         })
     }
 
@@ -599,6 +644,35 @@ impl State {
             0,
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
+
+        use crate::compute_nsquares;
+        compute_nsquares(&mut self.bodies);
+
+        for body in &mut self.bodies {
+            body.update(self.dt);
+        }
+
+        // Régénérer les vertices/indices
+        let (vertices, indices) = bodies_to_vertices_indices(&self.bodies);
+
+        // === SOLUTION: Recréer les buffers au lieu de write_buffer ===
+        self.vertex_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+
+        self.index_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(&indices),
+                usage: wgpu::BufferUsages::INDEX,
+            });
+
+        self.num_indices = indices.len() as u32;
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {

@@ -23,14 +23,26 @@ impl Vec2 {
         (self.x * self.x + self.y * self.y).sqrt()
     }
 
-    /// Returns a normalized version of the vector (length = 1)
-    /// If the vector is zero, returns `(0, 0)` instead
-    pub fn normalized(&self) -> Self {
+    /// Retourne un vecteur normalisé (longueur = 1)
+    /// Si le vecteur est nul, retourne un vecteur nul
+    pub fn normalize(&self) -> Self {
         let len = self.length();
-        if len == 0.0 {
+        if len < 1e-10 {
             Self::zero()
         } else {
-            *self / len
+            Self {
+                x: self.x / len,
+                y: self.y / len,
+            }
+        }
+    }
+
+    /// Normalise le vecteur en place
+    pub fn normalize_mut(&mut self) {
+        let len = self.length();
+        if len >= 1e-10 {
+            self.x /= len;
+            self.y /= len;
         }
     }
 
