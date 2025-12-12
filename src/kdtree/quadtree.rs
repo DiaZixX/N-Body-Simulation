@@ -43,6 +43,7 @@ impl Quadtree {
         children
     }
 
+    // === DANS quadtree.rs - CORRECTION COMPLÈTE de insert ===
     pub fn insert(&mut self, pos: Vec2, mass: f32) {
         let mut node = Self::ROOT;
 
@@ -60,12 +61,32 @@ impl Quadtree {
         let p = self.nodes[node].pos;
         let m = self.nodes[node].mass;
 
-        if pos == p {
+        // === CORRECTION 1: Tolérance plus large pour considérer deux positions identiques ===
+        let distance_sq = (pos.x - p.x).powi(2) + (pos.y - p.y).powi(2);
+        if distance_sq < 1e-8 {
+            // <= Seuil plus large (était juste pos == p)
             self.nodes[node].mass += mass;
+            // Recalculer le centre de masse
+            self.nodes[node].pos = (p * m + pos * mass) / (m + mass);
             return;
         }
 
+        // === CORRECTION 2: Limite de taille ET de profondeur ===
+        const MIN_QUAD_SIZE: f32 = 1e-5; // Taille minimale du quad
+        const MAX_DEPTH: usize = 15; // Profondeur maximale (réduite de 20 à 15)
+        let mut depth = 0;
+
         loop {
+            depth += 1;
+
+            // Protection contre subdivision excessive
+            if depth > MAX_DEPTH || self.nodes[node].quad.size < MIN_QUAD_SIZE {
+                // Fusionner les deux bodies
+                self.nodes[node].mass += mass;
+                self.nodes[node].pos = (p * m + pos * mass) / (m + mass);
+                return;
+            }
+
             let children = self.subdivide(node);
 
             let q1 = self.nodes[node].quad.find_quadrant(p);
@@ -119,8 +140,10 @@ impl Quadtree {
             let d_sq = d.x * d.x + d.y * d.y;
 
             if n.is_leaf() || n.quad.size * n.quad.size < d_sq * t_sq {
-                let denom = (d_sq + e_sq) * d_sq.sqrt();
-                acc += d * (n.mass / denom).min(f32::MAX);
+                if d_sq > 1e-10 {
+                    let denom = (d_sq + e_sq) * d_sq.sqrt();
+                    acc += d * (n.mass / denom).min(f32::MAX);
+                }
 
                 if n.next == 0 {
                     break;

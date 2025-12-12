@@ -11,6 +11,7 @@ use winit::{
 
 use crate::body::Body;
 use crate::geom::Vec2;
+use crate::kdtree::{Quad, Quadtree};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -146,7 +147,7 @@ fn generate_sphere_vertices(
     stacks: u32,  // Nombre de divisions verticales
     sectors: u32, // Nombre de divisions horizontales
     color: [f32; 3],
-) -> (Vec<Vertex>, Vec<u16>) {
+) -> (Vec<Vertex>, Vec<u32>) {
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
 
@@ -176,15 +177,15 @@ fn generate_sphere_vertices(
 
         for j in 0..sectors {
             if i != 0 {
-                indices.push((k1 + j) as u16);
-                indices.push((k2 + j) as u16);
-                indices.push((k1 + j + 1) as u16);
+                indices.push((k1 + j) as u32);
+                indices.push((k2 + j) as u32);
+                indices.push((k1 + j + 1) as u32);
             }
 
             if i != stacks - 1 {
-                indices.push((k1 + j + 1) as u16);
-                indices.push((k2 + j) as u16);
-                indices.push((k2 + j + 1) as u16);
+                indices.push((k1 + j + 1) as u32);
+                indices.push((k2 + j) as u32);
+                indices.push((k2 + j + 1) as u32);
             }
         }
     }
@@ -193,7 +194,7 @@ fn generate_sphere_vertices(
 }
 
 // Générer plusieurs sphères - Thème espace/étoiles
-fn generate_spheres() -> (Vec<Vertex>, Vec<u16>) {
+fn generate_spheres() -> (Vec<Vertex>, Vec<u32>) {
     let mut all_vertices = Vec::new();
     let mut all_indices = Vec::new();
 
@@ -204,47 +205,47 @@ fn generate_spheres() -> (Vec<Vertex>, Vec<u16>) {
     all_indices.extend(indices1);
 
     // Étoile jaune-orange (comme le soleil)
-    let offset = all_vertices.len() as u16;
+    let offset = all_vertices.len() as u32;
     let (vertices2, indices2) =
         generate_sphere_vertices(0.5, 0.5, 0.0, 0.12, 16, 32, [1.0, 0.85, 0.3]);
     all_vertices.extend(vertices2);
     all_indices.extend(indices2.iter().map(|&i| i + offset));
 
     // Étoile bleu-blanc (étoile chaude)
-    let offset = all_vertices.len() as u16;
+    let offset = all_vertices.len() as u32;
     let (vertices3, indices3) =
         generate_sphere_vertices(-0.6, 0.3, -0.2, 0.08, 12, 24, [0.7, 0.85, 1.0]);
     all_vertices.extend(vertices3);
     all_indices.extend(indices3.iter().map(|&i| i + offset));
 
     // Petite étoile blanche
-    let offset = all_vertices.len() as u16;
+    let offset = all_vertices.len() as u32;
     let (vertices4, indices4) =
         generate_sphere_vertices(0.7, -0.2, 0.1, 0.05, 10, 20, [0.95, 0.95, 1.0]);
     all_vertices.extend(vertices4);
     all_indices.extend(indices4.iter().map(|&i| i + offset));
 
     // Étoile rouge (étoile froide/géante rouge)
-    let offset = all_vertices.len() as u16;
+    let offset = all_vertices.len() as u32;
     let (vertices5, indices5) =
         generate_sphere_vertices(-0.4, -0.5, 0.3, 0.1, 14, 28, [1.0, 0.4, 0.3]);
     all_vertices.extend(vertices5);
     all_indices.extend(indices5.iter().map(|&i| i + offset));
 
     // Petites étoiles dispersées
-    let offset = all_vertices.len() as u16;
+    let offset = all_vertices.len() as u32;
     let (vertices6, indices6) =
         generate_sphere_vertices(0.3, -0.7, -0.1, 0.04, 8, 16, [0.9, 0.9, 0.95]);
     all_vertices.extend(vertices6);
     all_indices.extend(indices6.iter().map(|&i| i + offset));
 
-    let offset = all_vertices.len() as u16;
+    let offset = all_vertices.len() as u32;
     let (vertices7, indices7) =
         generate_sphere_vertices(-0.8, -0.1, 0.2, 0.06, 10, 20, [0.85, 0.9, 1.0]);
     all_vertices.extend(vertices7);
     all_indices.extend(indices7.iter().map(|&i| i + offset));
 
-    let offset = all_vertices.len() as u16;
+    let offset = all_vertices.len() as u32;
     let (vertices8, indices8) =
         generate_sphere_vertices(0.15, 0.75, -0.3, 0.045, 8, 16, [1.0, 0.95, 0.8]);
     all_vertices.extend(vertices8);
@@ -393,14 +394,18 @@ pub struct State {
     // Structure pour les bodies
     bodies: Vec<Body>,
     dt: f32, // Pas de temps pour la simulation
+    // Structure pour kdtree
+    quadtree: Quadtree,
+    theta: f32, // Paramètre theta pour Barnes-Hut (précision)
+    epsilon: f32,
 }
 
-fn bodies_to_vertices_indices(bodies: &[Body]) -> (Vec<Vertex>, Vec<u16>) {
+fn bodies_to_vertices_indices(bodies: &[Body]) -> (Vec<Vertex>, Vec<u32>) {
     let mut all_vertices = Vec::new();
     let mut all_indices = Vec::new();
 
     for body in bodies {
-        let offset = all_vertices.len() as u16;
+        let offset = all_vertices.len() as u32;
 
         // Générer un cercle/sphère pour chaque body
         // Position normalisée (bodies sont dans [-1, 1])
@@ -480,19 +485,32 @@ impl State {
             source: wgpu::ShaderSource::Wgsl(include_str!("./shader.wgsl").into()),
         });
 
-        use crate::generate_gaussian; // Assurez-vous que cette fonction est accessible
-        let bodies = generate_gaussian(
-            200,                 // nombre de bodies
-            Vec2::new(0.0, 0.0), // centre
-            0.3,                 // sigma
-            1.0,                 // masse
-            0.02,                // radius
+        //use crate::generate_gaussian; // Assurez-vous que cette fonction est accessible
+        //let bodies = generate_gaussian(
+        //    1000,                // nombre de bodies
+        //    Vec2::new(0.0, 0.0), // centre
+        //    0.3,                 // sigma
+        //    1.0,                 // masse
+        //    0.02,                // radius
+        //);
+        use crate::generate_solar_system_varied;
+        let bodies = generate_solar_system_varied(
+            2, // 10 planètes
+            Vec2::new(0.0, 0.0),
+            100.0, // masse étoile
+            0.05,  // rayon étoile
+            0.15,  // rayon orbital min
+            0.9,   // rayon orbital max
         );
 
         // Convertir les bodies en vertices/indices
         let (vertices, indices) = bodies_to_vertices_indices(&bodies);
         // Générer les cercles
         // let (vertices, indices) = generate_spheres();
+        let mut quadtree = Quadtree::new();
+        // Créer le quad englobant tous les bodies
+        let quad = Quad::new_containing(&bodies);
+        quadtree.clear(quad);
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -623,6 +641,9 @@ impl State {
             camera_bind_group,
             bodies,
             dt: 0.001,
+            quadtree,
+            theta: 0.5, // Valeur standard pour Barnes-Hut (0.5 = bon compromis vitesse/précision)
+            epsilon: 0.01,
         })
     }
 
@@ -636,7 +657,6 @@ impl State {
     }
 
     fn update(&mut self) {
-        // remove `todo!()`
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_uniform.update_view_proj(&self.camera);
         self.queue.write_buffer(
@@ -645,8 +665,48 @@ impl State {
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
 
-        use crate::compute_nsquares;
-        compute_nsquares(&mut self.bodies);
+        let method = false;
+
+        if method {
+            use crate::compute_nsquares;
+            compute_nsquares(&mut self.bodies);
+        } else {
+            let quad = Quad::new_containing(&self.bodies);
+            self.quadtree.clear(quad);
+
+            for body in &self.bodies {
+                self.quadtree.insert(body.pos, body.mass);
+            }
+
+            self.quadtree.propagate();
+            static mut FRAME_COUNT: u32 = 0;
+            unsafe {
+                FRAME_COUNT += 1;
+                if FRAME_COUNT % 30 == 0 {
+                    let nodes_count = self.quadtree.nodes.len();
+                    let ratio = nodes_count as f32 / self.bodies.len() as f32;
+                    let tmp = FRAME_COUNT;
+                    println!(
+                        "Frame {}: {} bodies → {} nodes (ratio: {:.2})",
+                        tmp,
+                        self.bodies.len(),
+                        nodes_count,
+                        ratio
+                    );
+
+                    // RATIO NORMAL: 1.3 à 4.0
+                    // RATIO ANORMAL: > 10.0
+                    if ratio > 10.0 {
+                        println!("⚠️  WARNING: Trop de nodes! Subdivisions excessives détectées!");
+                    }
+                }
+            }
+
+            for body in &mut self.bodies {
+                body.reset_acceleration();
+                body.acc = self.quadtree.acc(body.pos, self.theta, self.epsilon) * 9.81;
+            }
+        }
 
         for body in &mut self.bodies {
             body.update(self.dt);
@@ -725,7 +785,7 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 

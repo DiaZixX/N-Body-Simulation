@@ -8,6 +8,7 @@ mod simul;
 use crate::body::Body;
 use crate::geom::Vec2;
 use crate::simul::generate::generate_gaussian;
+use crate::simul::generate::generate_solar_system_varied;
 
 /// Constante gravitationnelle (à ajuster selon vos besoins)
 const G: f32 = 6.674e-11; // ou une valeur plus adaptée à votre simulation

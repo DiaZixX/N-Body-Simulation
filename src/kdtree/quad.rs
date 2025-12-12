@@ -41,8 +41,11 @@ impl Quad {
         }
 
         let center = Vec2::new(min_x + max_x, min_y + max_y) * 0.5;
-        let size = (max_x - min_x).max(max_y - min_y);
+        let mut size = (max_x - min_x).max(max_y - min_y);
 
+        if size < 0.01 {
+            size = 2.0; // Taille par défaut si tous les bodies sont au même endroit
+        }
         Self { center, size }
     }
 
