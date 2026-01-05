@@ -403,6 +403,7 @@ pub struct State {
 fn bodies_to_vertices_indices(bodies: &[Body]) -> (Vec<Vertex>, Vec<u32>) {
     let mut all_vertices = Vec::new();
     let mut all_indices = Vec::new();
+    let scale = 4.5e12;
 
     for body in bodies {
         let offset = all_vertices.len() as u32;
@@ -410,18 +411,31 @@ fn bodies_to_vertices_indices(bodies: &[Body]) -> (Vec<Vertex>, Vec<u32>) {
         // Générer un cercle/sphère pour chaque body
         // Position normalisée (bodies sont dans [-1, 1])
         let (vertices, indices) = generate_sphere_vertices(
-            body.pos.x,      // center_x
-            body.pos.y,      // center_y
-            0.0,             // center_z (plan z=0)
-            body.radius,     // radius
-            8,               // stacks (divisions verticales)
-            16,              // sectors (divisions horizontales)
-            [1.0, 1.0, 1.0], // couleur blanche
+            body.pos.x / scale, // center_x
+            body.pos.y / scale, // center_y
+            0.0,                // center_z (plan z=0)
+            body.radius,        // radius
+            8,                  // stacks (divisions verticales)
+            16,                 // sectors (divisions horizontales)
+            [1.0, 1.0, 1.0],    // couleur blanche
         );
+
+        // println!(
+        // "Coords before : x : {:.2} , y : {:.2}",
+        // body.pos.x, body.pos.y,
+        // );
+        // println!(
+        // "Coords after : x : {:.2} , y : {:.2}",
+        // body.pos.x / scale,
+        // body.pos.y / scale
+        // );
 
         all_vertices.extend(vertices);
         all_indices.extend(indices.iter().map(|&i| i + offset));
     }
+
+    println!("======");
+    //panic!("Une iteration faite");
 
     (all_vertices, all_indices)
 }
@@ -493,15 +507,9 @@ impl State {
         //    1.0,                 // masse
         //    0.02,                // radius
         //);
-        use crate::generate_solar_system_varied;
-        let bodies = generate_solar_system_varied(
-            2, // 10 planètes
-            Vec2::new(0.0, 0.0),
-            100.0, // masse étoile
-            0.05,  // rayon étoile
-            0.15,  // rayon orbital min
-            0.9,   // rayon orbital max
-        );
+        use crate::generate_solar_system;
+        use crate::generate_solar_system_mini;
+        let bodies = generate_solar_system();
 
         // Convertir les bodies en vertices/indices
         let (vertices, indices) = bodies_to_vertices_indices(&bodies);
@@ -640,7 +648,7 @@ impl State {
             camera_buffer,
             camera_bind_group,
             bodies,
-            dt: 0.001,
+            dt: 100000.0,
             quadtree,
             theta: 0.5, // Valeur standard pour Barnes-Hut (0.5 = bon compromis vitesse/précision)
             epsilon: 0.01,
@@ -665,7 +673,7 @@ impl State {
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
 
-        let method = false;
+        let method = true;
 
         if method {
             use crate::compute_nsquares;
@@ -709,10 +717,32 @@ impl State {
         }
 
         for body in &mut self.bodies {
+            println!(
+                "Body before : pos : {} vel : {} acc : {} vel_norm : {} acc_norm : {}",
+                body.pos,
+                body.vel,
+                body.acc,
+                body.vel.length(),
+                body.acc.length()
+            );
+        }
+
+        for body in &mut self.bodies {
             body.update(self.dt);
         }
 
+        for body in &mut self.bodies {
+            println!(
+                "Body after : pos : {} vel : {} acc {} vel_norm : {} acc_norm : {}",
+                body.pos,
+                body.vel,
+                body.acc,
+                body.vel.length(),
+                body.acc.length()
+            );
+        }
         // Régénérer les vertices/indices
+        println!("Rappel a la conversion");
         let (vertices, indices) = bodies_to_vertices_indices(&self.bodies);
 
         // === SOLUTION: Recréer les buffers au lieu de write_buffer ===
