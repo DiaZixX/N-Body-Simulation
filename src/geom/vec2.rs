@@ -1,6 +1,8 @@
 //! @file vec2.rs
 //! @brief 2D vector implementation with arithmetic operations
 
+#![allow(dead_code)]
+
 use std::fmt;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 

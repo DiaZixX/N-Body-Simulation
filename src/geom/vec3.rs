@@ -1,6 +1,8 @@
 //! @file vec3.rs
 //! @brief 3D vector implementation with arithmetic operations
 
+#![allow(dead_code)]
+
 use std::fmt;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
