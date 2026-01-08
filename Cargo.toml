@@ -3,4 +3,18 @@ name = "n-body-simulation"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "n_body_simulation"
+path = "src/lib.rs"
+
+[[bin]]
+name = "n-body-simulation"
+path = "src/main.rs"
+
+[features]
+default = ["vec2"]
+vec2 = []
+vec3 = []
+
 [dependencies]
+
