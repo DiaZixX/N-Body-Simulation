@@ -3,6 +3,8 @@
 
 use n_body_simulation::{Body, Vector};
 
+mod kdtree;
+
 fn main() {
     println!("=== N-Body Simulation ===\n");
 
