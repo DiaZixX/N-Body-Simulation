@@ -33,3 +33,29 @@ impl Node {
         self.mass == 0.0
     }
 }
+
+/// @brief Display trait implementation for Node.
+///
+/// Formats the node showing its type (Leaf/Branch), position, mass,
+/// and spatial cell information. Adapts automatically to 2D or 3D mode.
+impl fmt::Display for Node {
+    /// @brief Formats the node for display.
+    ///
+    /// @param f The formatter
+    /// @return Result of the formatting operation
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let node_type = if self.is_empty() {
+            "Empty"
+        } else if self.is_leaf() {
+            "Leaf"
+        } else {
+            "Branch"
+        };
+
+        write!(
+            f,
+            "Node[{}](pos={}, mass={:.2}, children={}, cell={})",
+            node_type, self.pos, self.mass, self.children, self.kdcell
+        )
+    }
+}
