@@ -5,7 +5,8 @@
 //! - In 2D mode (vec2): Acts as a Quadtree cell with 4 children
 //! - In 3D mode (vec3): Acts as an Octree cell with 8 children
 
-use n_body_simulation::{Body, Vector};
+use crate::body::Body;
+use crate::geom::Vector;
 use std::fmt;
 
 /// @brief Spatial cell for hierarchical space partitioning.
@@ -37,10 +38,10 @@ impl KdCell {
     ///
     /// Creates a child quadrant by halving the size and offsetting the center.
     /// Quadrant indexing:
-    /// - 0: Bottom-left
-    /// - 1: Bottom-right
-    /// - 2: Top-left
-    /// - 3: Top-right
+    /// - 0: Bottom-right
+    /// - 1: Bottom-left
+    /// - 2: Top-right
+    /// - 3: Top-left
     ///
     /// @param i The quadrant index (0-3)
     /// @return A new Quad representing the specified quadrant

@@ -2,8 +2,7 @@
 //! @brief Main entry point for the n-body simulation
 
 use n_body_simulation::{Body, Vector};
-
-mod kdtree;
+use n_body_simulation::{KdCell, KdTree, Node};
 
 fn main() {
     println!("=== N-Body Simulation ===\n");

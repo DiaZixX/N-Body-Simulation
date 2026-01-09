@@ -12,7 +12,7 @@
 //! - 3D mode (vec3): Octree with 8 children per branch
 
 use super::kdcell::KdCell;
-use n_body_simulation::Vector;
+use crate::geom::Vector;
 use std::fmt;
 
 /// @brief Node in the Barnes-Hut tree structure.

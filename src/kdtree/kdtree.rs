@@ -11,7 +11,9 @@
 //! of bodies as single masses.
 
 use super::{KdCell, Node};
-use n_body_simulation::{Body, Vector};
+use crate::body::Body;
+use crate::geom::Vector;
+
 use std::fmt;
 
 /// @brief K-dimensional tree for spatial partitioning.
