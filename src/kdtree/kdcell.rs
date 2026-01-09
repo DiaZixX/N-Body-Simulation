@@ -6,6 +6,7 @@
 //! - In 3D mode (vec3): Acts as an Octree cell with 8 children
 
 use n_body_simulation::{Body, Vector};
+use std::fmt;
 
 /// @brief Spatial cell for hierarchical space partitioning.
 ///
@@ -15,14 +16,14 @@ use n_body_simulation::{Body, Vector};
 /// - vec2: Quadtree cell (4 subdivisions)
 /// - vec3: Octree cell (8 subdivisions)
 #[derive(Clone, Copy, Debug)]
-pub struct Quad {
+pub struct KdCell {
     /// @brief Center point of the spatial cell
     pub center: Vector,
     /// @brief Size of the cell (side length of the square/cube)
     pub size: f32,
 }
 
-impl Quad {
+impl KdCell {
     /// @brief Creates a new spatial cell.
     ///
     /// @param center The center point of the cell
@@ -76,7 +77,7 @@ impl Quad {
     ///
     /// @return Array of 4 Quad instances representing all quadrants
     #[cfg(feature = "vec2")]
-    pub fn into_quadrants(&self) -> [Quad; 4] {
+    pub fn into_quadrants(&self) -> [KdCell; 4] {
         [0, 1, 2, 3].map(|i| self.into_quadrant(i))
     }
 
@@ -86,7 +87,7 @@ impl Quad {
     ///
     /// @return Array of 8 Quad instances representing all octants
     #[cfg(feature = "vec3")]
-    pub fn into_octants(&self) -> [Quad; 8] {
+    pub fn into_octants(&self) -> [KdCell; 8] {
         [0, 1, 2, 3, 4, 5, 6, 7].map(|i| self.into_octant(i))
     }
 
@@ -207,5 +208,24 @@ impl Quad {
                 && diff.y.abs() <= self.size / 2.0
                 && diff.z.abs() <= self.size / 2.0
         }
+    }
+}
+
+/// @brief Display trait implementation for KdCell.
+///
+/// Formats the body as "KdCell(center=..., size=...)"
+/// where center is the center of the cell (2D or 3D)
+/// and the size is the cell's size.
+impl fmt::Display for KdCell {
+    /// @brief Formats the spatial cell for display.
+    ///
+    /// Displays the cell's center position and size.
+    /// The format automatically adapts to show 2D or 3D coordinates
+    /// based on the Vector's Display implementation.
+    ///
+    /// @param f The formatter
+    /// @return Result of the formatting operation
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "KdCell(center={}, size={:.2})", self.center, self.size)
     }
 }
