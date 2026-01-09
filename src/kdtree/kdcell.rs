@@ -1,4 +1,4 @@
-//! @file quad.rs
+//! @file kdcell.rs
 //! @brief Spatial partitioning structure for Barnes-Hut algorithm
 //!
 //! This module provides a spatial cell structure that adapts to the dimensionality:

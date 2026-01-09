@@ -1,3 +1,16 @@
+//! @file node.rs
+//! @brief Tree node implementation for Barnes-Hut spatial hierarchy
+//!
+//! This module defines the Node structure used in the Barnes-Hut algorithm
+//! for efficient N-body simulation. Each node represents either:
+//! - A leaf node: containing a single body or empty space
+//! - A branch node: containing aggregated information (center of mass, total mass)
+//!   for all bodies in its subtree
+//!
+//! The tree structure automatically adapts based on dimensionality:
+//! - 2D mode (vec2): Quadtree with 4 children per branch
+//! - 3D mode (vec3): Octree with 8 children per branch
+
 use super::kdcell::KdCell;
 use n_body_simulation::Vector;
 use std::fmt;
