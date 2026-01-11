@@ -7,6 +7,8 @@
 //! - Initial condition generators (Gaussian, uniform, solar system)
 //!
 //! The module adapts to 2D (vec2) or 3D (vec3) based on compilation features.
+pub mod compute;
 pub mod generate;
 
-pub use generate::{compute_nsquares, generate_gaussian, generate_solar_system, generate_uniform};
+pub use compute::compute_nsquares;
+pub use generate::{generate_gaussian, generate_solar_system, generate_uniform};
