@@ -24,6 +24,7 @@
 extern crate cc;
 
 fn main() {
+    /*
     cc::Build::new()
         .cuda(true)
         .flag("-cudart=static")
@@ -44,4 +45,5 @@ fn main() {
 
     // println!("cargo:rustc-link-search=native=/usr/local/cuda/lib64/stub");
     // println!("cargo:rustc-link-lib=cuda");
+    */
 }
