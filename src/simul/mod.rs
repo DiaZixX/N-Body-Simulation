@@ -1,2 +1,3 @@
 pub mod generate;
-pub mod simul;
+
+pub use generate::{generate_gaussian, generate_solar_system, generate_uniform};
