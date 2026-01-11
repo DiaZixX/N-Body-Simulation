@@ -1,15 +1,8 @@
-mod body;
-mod cuda;
-mod geom;
-mod kdtree;
-mod renderer;
-mod simul;
+//! @file main.rs
+//! @brief Main entry point for the n-body simulation
 
-use crate::body::Body;
-use crate::geom::Vec2;
-use crate::simul::generate::generate_gaussian;
-use crate::simul::generate::generate_solar_system;
-use crate::simul::generate::generate_solar_system_mini;
+use n_body_simulation::{Body, Vector};
+use n_body_simulation::{KdCell, KdTree, Node};
 
 /// Constante gravitationnelle (à ajuster selon vos besoins)
 const G: f32 = 6.674e-11; // ou une valeur plus adaptée à votre simulation
@@ -60,22 +53,33 @@ pub fn compute_nsquares(bodies: &mut [Body]) {
     } */
 }
 
-fn main() -> anyhow::Result<()> {
-    // let dt = 0.01;
+fn main() {
+    println!("=== N-Body Simulation ===\n");
 
-    // for n in 0..1000 {
-    // compute_nsquares(&mut bodies);
+    #[cfg(all(feature = "vec2", not(feature = "vec3")))]
+    println!("Running in 2D mode\n");
 
-    //// Mettre à jour les positions et vitesses
-    // for body in bodies.iter_mut() {
-    // body.update(dt);
-    // }
+    #[cfg(feature = "vec3")]
+    println!("Running in 3D mode\n");
 
-    // println!("Itération {}", n);
-    // for b in bodies.iter().take(5) {
-    // println!("{}", b);
-    // }
-    // }
+    // Votre simulation principale ici
+    let body = {
+        #[cfg(all(feature = "vec2", not(feature = "vec3")))]
+        {
+            Body::new(Vector::new(0.0, 0.0), Vector::new(1.0, 0.0), 1.0, 0.5)
+        }
 
-    renderer::run()
+        #[cfg(feature = "vec3")]
+        {
+            Body::new(
+                Vector::new(0.0, 0.0, 0.0),
+                Vector::new(1.0, 0.0, 0.0),
+                1.0,
+                0.5,
+            )
+        }
+    };
+
+    println!("Created body: {}", body);
+    println!("\nSimulation would run here...");
 }
