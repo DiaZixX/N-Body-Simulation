@@ -293,7 +293,7 @@ impl State {
             }
         }
 
-        for body in &mut self.bodies {
+        /* for body in &mut self.bodies {
             println!(
                 "Body before : pos : {} vel : {} acc : {} vel_norm : {} acc_norm : {}",
                 body.pos,
@@ -302,13 +302,13 @@ impl State {
                 body.vel.norm(),
                 body.acc.norm()
             );
-        }
+        } */
 
         for body in &mut self.bodies {
             body.update(self.dt);
         }
 
-        for body in &mut self.bodies {
+        /* for body in &mut self.bodies {
             println!(
                 "Body after : pos : {} vel : {} acc {} vel_norm : {} acc_norm : {}",
                 body.pos,
@@ -317,9 +317,8 @@ impl State {
                 body.vel.norm(),
                 body.acc.norm()
             );
-        }
+        } */
 
-        println!("Rappel a la conversion");
         let (vertices, indices) = bodies_to_vertices_indices(&self.bodies);
 
         // === SOLUTION: Recréer les buffers au lieu de write_buffer ===

@@ -176,7 +176,5 @@ pub fn bodies_to_vertices_indices(bodies: &[Body]) -> (Vec<Vertex>, Vec<u32>) {
         all_indices.extend(indices.iter().map(|&i| i + offset));
     }
 
-    println!("======");
-
     (all_vertices, all_indices)
 }
