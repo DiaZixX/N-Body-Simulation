@@ -26,6 +26,8 @@ use std::fmt;
 /// for efficient force computation using the Barnes-Hut algorithm.
 #[derive(Debug)]
 pub struct KdTree {
+    pub t_sq: f32,
+    pub e_sq: f32,
     /// @brief Flat array of all nodes in the tree
     pub nodes: Vec<Node>,
     /// @brief Stack of parent node indices for propagation
@@ -46,8 +48,10 @@ impl KdTree {
     /// @brief Creates a new empty KdTree.
     ///
     /// @return A new KdTree instance with no nodes
-    pub fn new() -> Self {
+    pub fn new(theta: f32, epsilon: f32) -> Self {
         Self {
+            t_sq: theta * theta,
+            e_sq: epsilon * epsilon,
             nodes: Vec::new(),
             parents: Vec::new(),
         }
@@ -144,7 +148,22 @@ impl KdTree {
             return;
         }
 
+        /* const MIN_CELL_SIZE: f32 = 1e-5;
+        const MAX_DEPTH: usize = 15;
+        let mut depth = 0; */
+
         loop {
+            /*
+            depth += 1;
+
+            // Protection contre subdivision excessive
+            if depth > MAX_DEPTH || self.nodes[node].kdcell.size < MIN_CELL_SIZE {
+                // Fusionner les deux bodies
+                self.nodes[node].mass += mass;
+                self.nodes[node].pos = (p * m + pos * mass) / (m + mass);
+                return;
+            }
+            */
             let children = self.subdivide(node);
 
             #[cfg(feature = "vec2")]
@@ -231,9 +250,7 @@ impl KdTree {
             }
 
             let mass = self.nodes[node].mass;
-            if mass > 0.0 {
-                self.nodes[node].pos /= mass;
-            }
+            self.nodes[node].pos /= mass;
         }
     }
 
@@ -246,11 +263,8 @@ impl KdTree {
     /// @param theta Opening angle parameter (smaller = more accurate, slower)
     /// @param epsilon Softening parameter to avoid singularities
     /// @return Acceleration vector
-    pub fn acc(&self, pos: Vector, theta: f32, epsilon: f32) -> Vector {
+    pub fn acc(&self, pos: Vector) -> Vector {
         let mut acc = Vector::zero();
-
-        let t_sq = theta * theta;
-        let e_sq = epsilon * epsilon;
 
         let mut node = Self::ROOT;
         loop {
@@ -259,11 +273,9 @@ impl KdTree {
             let d = n.pos - pos;
             let d_sq = d.norm_squared();
 
-            if n.is_leaf() || n.kdcell.size * n.kdcell.size < d_sq * t_sq {
-                let denom = (d_sq + e_sq) * d_sq.sqrt();
-                if denom > 0.0 {
-                    acc += d * (n.mass / denom).min(f32::MAX);
-                }
+            if n.is_leaf() || n.kdcell.size * n.kdcell.size < d_sq * self.t_sq {
+                let denom = (d_sq + self.e_sq) * d_sq.sqrt();
+                acc += d * (n.mass / denom).min(f32::MAX);
 
                 if n.next == 0 {
                     break;
@@ -445,22 +457,14 @@ impl fmt::Display for KdTree {
         ) -> fmt::Result {
             let node = &tree.nodes[node_idx];
 
-            let connector = if prefix.is_empty() {
-                ""
-            } else if is_last {
-                "└─ "
-            } else {
-                "├─ "
-            };
+            let connector = if is_last { "└─ " } else { "├─ " };
 
             writeln!(f, "{}{}{}", prefix, connector, node)?;
 
             // Recursive exploration on branch
             if node.is_branch() {
                 let base = node.children;
-                let child_prefix = if prefix.is_empty() {
-                    String::new()
-                } else if is_last {
+                let child_prefix = if is_last {
                     format!("{}   ", prefix)
                 } else {
                     format!("{}│  ", prefix)
@@ -489,6 +493,16 @@ impl fmt::Display for KdTree {
             Ok(())
         }
 
-        recurse(f, self, Self::ROOT, "", true)
+        // Impression de la racine sans connecteur
+        writeln!(f, "{}", self.nodes[Self::ROOT])?;
+
+        if self.nodes[Self::ROOT].is_branch() {
+            let base = self.nodes[Self::ROOT].children;
+            for i in 0..KdTree::NUM_CHILDREN {
+                recurse(f, self, base + i, "", i == KdTree::NUM_CHILDREN - 1)?;
+            }
+        }
+
+        Ok(())
     }
 }

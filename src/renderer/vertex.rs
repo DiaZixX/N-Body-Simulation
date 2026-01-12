@@ -145,7 +145,7 @@ pub fn generate_sphere_vertices(
 pub fn bodies_to_vertices_indices(bodies: &[Body]) -> (Vec<Vertex>, Vec<u32>) {
     let mut all_vertices = Vec::new();
     let mut all_indices = Vec::new();
-    let scale = 4.5e12;
+    let scale = 5.0; // 4.5e12;
 
     for body in bodies {
         let offset = all_vertices.len() as u32;

@@ -6,6 +6,7 @@ use wgpu::util::DeviceExt;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
 use crate::body::Body;
+use crate::geom::Vector;
 use crate::kdtree::{KdCell, KdTree};
 
 use super::camera::{Camera, CameraController, CameraUniform};
@@ -31,8 +32,6 @@ pub struct State {
     pub bodies: Vec<Body>,
     pub dt: f32,
     pub kdtree: KdTree,
-    pub theta: f32,
-    pub epsilon: f32,
 }
 
 impl State {
@@ -92,11 +91,21 @@ impl State {
             source: wgpu::ShaderSource::Wgsl(include_str!("./shader.wgsl").into()),
         });
 
-        use crate::simul::generate_solar_system;
-        let bodies = generate_solar_system();
+        use crate::simul::uniform_disc;
+        let bodies = uniform_disc(1000);
+        //use crate::simul::generate_solar_system;
+        //let bodies = generate_solar_system();
+        // use crate::simul::generate_gaussian;
+        /* let bodies = generate_gaussian(
+            100,                   // nombre de bodies
+            Vector::new(0.0, 0.0), // centre
+            0.3,                   // sigma
+            1.0,                   // masse
+            0.02,                  // radius
+        ); */
 
         let (vertices, indices) = bodies_to_vertices_indices(&bodies);
-        let mut kdtree = KdTree::new();
+        let mut kdtree = KdTree::new(1.0, 1.0);
 
         let kdcell = KdCell::new_containing(&bodies);
         kdtree.clear(kdcell);
@@ -222,10 +231,8 @@ impl State {
             camera_buffer,
             camera_bind_group,
             bodies,
-            dt: 100000.0,
+            dt: 0.05, //100000.0,
             kdtree,
-            theta: 0.5,
-            epsilon: 0.01,
         })
     }
 
@@ -252,7 +259,7 @@ impl State {
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
 
-        let method = true;
+        let method = false;
 
         if method {
             use crate::simul::compute_nsquares;
@@ -266,7 +273,7 @@ impl State {
             }
 
             self.kdtree.propagate();
-            static mut FRAME_COUNT: u32 = 0;
+            /* static mut FRAME_COUNT: u32 = 0;
             unsafe {
                 FRAME_COUNT += 1;
                 if FRAME_COUNT % 30 == 0 {
@@ -285,11 +292,13 @@ impl State {
                         println!("⚠️  WARNING: Trop de nodes! Subdivisions excessives détectées!");
                     }
                 }
-            }
+            } */
+            //println!("{}", self.kdtree);
+            //self.kdtree.display_with_bodies(&self.bodies);
 
             for body in &mut self.bodies {
                 body.reset_acceleration();
-                body.acc = self.kdtree.acc(body.pos, self.theta, self.epsilon) * 9.81;
+                body.acc = self.kdtree.acc(body.pos);
             }
         }
 

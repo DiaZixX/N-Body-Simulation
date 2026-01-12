@@ -88,7 +88,7 @@ pub fn generate_gaussian(
             #[cfg(feature = "vec3")]
             {
                 // Rotation in x-y plane, z component stays zero
-                Vector::new(-delta.y, delta.x, 0.0).normalized() * orbital_speed
+                Vector::new(-delta.y, delta.x, delta.z).normalized() * orbital_speed
             }
         };
 
@@ -292,6 +292,45 @@ pub fn generate_uniform(
         };
 
         bodies.push(Body::new(pos, vel, mass, radius));
+    }
+
+    bodies
+}
+
+pub fn uniform_disc(n: usize) -> Vec<Body> {
+    fastrand::seed(0);
+    let inner_radius = 25.0;
+    let outer_radius = (n as f32).sqrt() * 5.0;
+
+    let mut bodies: Vec<Body> = Vec::with_capacity(n);
+
+    let m = 1e6;
+    let center = Body::new(Vector::zero(), Vector::zero(), m as f32, inner_radius);
+    bodies.push(center);
+
+    while bodies.len() < n {
+        let a = fastrand::f32() * std::f32::consts::TAU;
+        let (sin, cos) = a.sin_cos();
+        let t = inner_radius / outer_radius;
+        let r = fastrand::f32() * (1.0 - t * t) + t * t;
+        let pos = Vector::new(cos, sin) * outer_radius * r.sqrt();
+        let vel = Vector::new(sin, -cos);
+        let mass = 1.0f32;
+        let radius = mass.cbrt();
+
+        bodies.push(Body::new(pos, vel, mass, radius));
+    }
+
+    bodies.sort_by(|a, b| a.pos.norm_squared().total_cmp(&b.pos.norm_squared()));
+    let mut mass = 0.0;
+    for i in 0..n {
+        mass += bodies[i].mass;
+        if bodies[i].pos == Vector::zero() {
+            continue;
+        }
+
+        let v = (mass / bodies[i].pos.norm()).sqrt();
+        bodies[i].vel *= v;
     }
 
     bodies

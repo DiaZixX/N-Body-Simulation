@@ -11,4 +11,6 @@ pub use body::Body;
 pub use geom::Vector;
 pub use kdtree::{KdCell, KdTree, Node};
 pub use renderer::{App, State, run};
-pub use simul::{compute_nsquares, generate_gaussian, generate_solar_system, generate_uniform};
+pub use simul::{
+    compute_nsquares, generate_gaussian, generate_solar_system, generate_uniform, uniform_disc,
+};

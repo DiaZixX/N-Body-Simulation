@@ -11,4 +11,4 @@ pub mod compute;
 pub mod generate;
 
 pub use compute::compute_nsquares;
-pub use generate::{generate_gaussian, generate_solar_system, generate_uniform};
+pub use generate::{generate_gaussian, generate_solar_system, generate_uniform, uniform_disc};

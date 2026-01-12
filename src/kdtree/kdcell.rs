@@ -48,8 +48,8 @@ impl KdCell {
     #[cfg(feature = "vec2")]
     pub fn into_quadrant(mut self, i: usize) -> Self {
         self.size *= 0.5;
-        self.center.x += (0.5 - (i & 1) as f32) * self.size;
-        self.center.y += (0.5 - (i >> 1) as f32) * self.size;
+        self.center.x += ((i & 1) as f32 - 0.5) * self.size;
+        self.center.y += ((i >> 1) as f32 - 0.5) * self.size;
         self
     }
 
@@ -66,9 +66,9 @@ impl KdCell {
     #[cfg(feature = "vec3")]
     pub fn into_octant(mut self, i: usize) -> Self {
         self.size *= 0.5;
-        self.center.x += (0.5 - (i & 1) as f32) * self.size;
-        self.center.y += (0.5 - ((i >> 1) & 1) as f32) * self.size;
-        self.center.z += (0.5 - (i >> 2) as f32) * self.size;
+        self.center.x += ((i & 1) as f32 - 0.5) * self.size;
+        self.center.y += (((i >> 1) & 1) as f32 - 0.5) * self.size;
+        self.center.z += ((i >> 2) as f32 - 0.5) * self.size;
         self
     }
 
