@@ -87,7 +87,7 @@ pub fn generate_gaussian(
 
             #[cfg(feature = "vec3")]
             {
-                // Rotation in x-y plane, z component stays zero
+                // Rotation in x-y plane
                 Vector::new(-delta.y, delta.x, delta.z).normalized() * orbital_speed
             }
         };
@@ -305,7 +305,12 @@ pub fn uniform_disc(n: usize) -> Vec<Body> {
     let mut bodies: Vec<Body> = Vec::with_capacity(n);
 
     let m = 1e6;
-    let center = Body::new(Vector::zero(), Vector::zero(), m as f32, inner_radius);
+    let center = Body::new(
+        Vector::zero(),
+        Vector::zero(),
+        m as f32,
+        inner_radius / 10.0,
+    );
     bodies.push(center);
 
     while bodies.len() < n {
@@ -316,7 +321,7 @@ pub fn uniform_disc(n: usize) -> Vec<Body> {
         let pos = Vector::new(cos, sin) * outer_radius * r.sqrt();
         let vel = Vector::new(sin, -cos);
         let mass = 1.0f32;
-        let radius = mass.cbrt();
+        let radius = mass.cbrt() / 10.0;
 
         bodies.push(Body::new(pos, vel, mass, radius));
     }
