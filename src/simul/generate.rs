@@ -297,6 +297,22 @@ pub fn generate_uniform(
     bodies
 }
 
+/// @brief Generates bodies in a uniform disc distribution with Keplerian velocities.
+///
+/// Creates N bodies uniformly distributed in an annular disc (ring shape) around
+/// a massive central body. Bodies are given velocities according to Keplerian dynamics
+/// (circular orbits), making this suitable for simulating galaxy or accretion disc dynamics.
+///
+/// The distribution:
+/// - Central massive body at origin
+/// - Bodies uniformly distributed between inner_radius and outer_radius
+/// - Velocities perpendicular to radial direction, magnitude ∝ 1/sqrt(r)
+///
+/// In 2D mode: Disc in x-y plane
+/// In 3D mode: Disc in x-y plane with slight vertical perturbations for thickness
+///
+/// @param n Number of bodies to generate (including central body)
+/// @return Vector of bodies with Keplerian velocity distribution
 pub fn uniform_disc(n: usize) -> Vec<Body> {
     fastrand::seed(0);
     let inner_radius = 25.0;
@@ -304,6 +320,7 @@ pub fn uniform_disc(n: usize) -> Vec<Body> {
 
     let mut bodies: Vec<Body> = Vec::with_capacity(n);
 
+    // Central massive body
     let m = 1e6;
     let center = Body::new(
         Vector::zero(),
@@ -313,20 +330,55 @@ pub fn uniform_disc(n: usize) -> Vec<Body> {
     );
     bodies.push(center);
 
+    // Generate bodies in disc
     while bodies.len() < n {
         let a = fastrand::f32() * std::f32::consts::TAU;
         let (sin, cos) = a.sin_cos();
         let t = inner_radius / outer_radius;
         let r = fastrand::f32() * (1.0 - t * t) + t * t;
-        let pos = Vector::new(cos, sin) * outer_radius * r.sqrt();
-        let vel = Vector::new(sin, -cos);
+        let r_scaled = outer_radius * r.sqrt();
+
+        let pos = {
+            #[cfg(feature = "vec2")]
+            {
+                Vector::new(cos * r_scaled, sin * r_scaled)
+            }
+
+            #[cfg(feature = "vec3")]
+            {
+                // Add small vertical displacement for disc thickness
+                let disc_thickness = r_scaled * 0.10; // 10% of radius
+                let z = (fastrand::f32() - 0.5) * disc_thickness;
+                Vector::new(cos * r_scaled, sin * r_scaled, z)
+            }
+        };
+
+        // Velocity perpendicular to position in the orbital plane
+        let vel = {
+            #[cfg(feature = "vec2")]
+            {
+                Vector::new(sin, -cos)
+            }
+
+            #[cfg(feature = "vec3")]
+            {
+                // Velocity in x-y plane (perpendicular to radius)
+                // Using cross product: vel = z_axis × r_normalized
+                // This gives tangential velocity in the disc plane
+                Vector::new(sin, -cos, 0.0)
+            }
+        };
+
         let mass = 1.0f32;
         let radius = mass.cbrt() / 10.0;
 
         bodies.push(Body::new(pos, vel, mass, radius));
     }
 
+    // Sort by distance from center
     bodies.sort_by(|a, b| a.pos.norm_squared().total_cmp(&b.pos.norm_squared()));
+
+    // Apply Keplerian velocity profile: v = sqrt(M_enclosed / r)
     let mut mass = 0.0;
     for i in 0..n {
         mass += bodies[i].mass;
@@ -334,8 +386,17 @@ pub fn uniform_disc(n: usize) -> Vec<Body> {
             continue;
         }
 
-        let v = (mass / bodies[i].pos.norm()).sqrt();
-        bodies[i].vel *= v;
+        // For 3D, we only consider the radial distance in x-y plane for Keplerian velocity
+        #[cfg(feature = "vec2")]
+        let r = bodies[i].pos.norm();
+
+        #[cfg(feature = "vec3")]
+        let r = (bodies[i].pos.x * bodies[i].pos.x + bodies[i].pos.y * bodies[i].pos.y).sqrt();
+
+        if r > 1e-6 {
+            let v = (mass / r).sqrt();
+            bodies[i].vel *= v;
+        }
     }
 
     bodies
