@@ -6,7 +6,6 @@ use wgpu::util::DeviceExt;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
 use crate::body::Body;
-use crate::geom::Vector;
 use crate::kdtree::{KdCell, KdTree};
 
 use super::camera::{Camera, CameraController, CameraUniform};
