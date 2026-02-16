@@ -16,6 +16,7 @@ path = "src/main.rs"
 default = ["vec2"]
 vec2 = []
 vec3 = []
+cuda = []
 
 [dependencies]
 fastrand = "2.1.1"

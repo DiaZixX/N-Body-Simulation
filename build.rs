@@ -1,49 +1,34 @@
-// fn main() {
-//     // Compile the CUDA kernel with nvcc into a static object and link it.
-//     use std::process::Command;
-//     use std::env;
-//
-//     let out_dir = env::var("OUT_DIR").unwrap();
-//     let src = "src/cuda/kernel.cu";
-//     let obj = format!("{}/kernel.o", out_dir);
-//
-//     // nvcc must be available in PATH
-//     let status = Command::new("nvcc")
-//         .args(&["-c", src, "-o", &obj, "-Xcompiler", "-fPIC"])
-//         .status()
-//         .expect("failed to run nvcc");
-//
-//     if !status.success() {
-//         panic!("nvcc failed");
-//     }
-//
-//     println!("cargo:rustc-link-search=native={}", out_dir);
-//     println!("cargo:rustc-link-lib=static=kernel");
-// }
-
-extern crate cc;
+use std::env;
+use std::path::PathBuf;
 
 fn main() {
-    /*
-    cc::Build::new()
-        .cuda(true)
-        .flag("-cudart=static")
-        .flag("-O3")
-        .flag("-gencode=arch=compute_86,code=sm_86")
-        .file("src/cuda/kernel.cu")
-        .compile("compute_forces_gpu");
+    // Détection de la feature vec3
+    let is_vec3 = env::var("CARGO_FEATURE_VEC3").is_ok();
 
-    /* Link CUDA Runtime (libcudart.so) */
+    // Configuration CUDA
+    let cuda_path = env::var("CUDA_PATH")
+        .or_else(|_| env::var("CUDA_HOME"))
+        .unwrap_or_else(|_| "/usr/local/cuda".to_string());
 
-    // Add link directory
-    // - This path depends on where you install CUDA (i.e. depends on your Linux distribution)
-    // - This should be set by `$LIBRARY_PATH`
-    println!("cargo:rustc-link-search=native=/usr/local/cuda/lib64");
+    println!("cargo:rustc-link-search=native={}/lib64", cuda_path);
     println!("cargo:rustc-link-lib=cudart");
 
-    /* Optional: Link CUDA Driver API (libcuda.so) */
+    // Compilation CUDA
+    let mut nvcc = cc::Build::new();
+    nvcc.cuda(true);
+    nvcc.flag("-cudart=static");
+    nvcc.flag("-O3");
 
-    // println!("cargo:rustc-link-search=native=/usr/local/cuda/lib64/stub");
-    // println!("cargo:rustc-link-lib=cuda");
-    */
+    // Détecter compute capability (adapter selon votre GPU)
+    // RTX 3080/3090 = sm_86, RTX 4090 = sm_89
+    nvcc.flag("-gencode=arch=compute_86,code=sm_86");
+
+    if is_vec3 {
+        nvcc.define("VEC3", None);
+    }
+
+    nvcc.file("src/cuda/kernel.cu");
+    nvcc.compile("nbody_cuda");
+
+    println!("cargo:rerun-if-changed=src/cuda/kernel.cu");
 }

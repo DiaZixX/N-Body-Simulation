@@ -258,62 +258,50 @@ impl State {
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
 
-        let method = false;
-
-        if method {
-            use crate::simul::compute_nsquares;
-            compute_nsquares(&mut self.bodies);
-        } else {
-            let kdcell = KdCell::new_containing(&self.bodies);
-            self.kdtree.clear(kdcell);
-
-            for body in &self.bodies {
-                self.kdtree.insert(body.pos, body.mass);
-            }
-
-            self.kdtree.propagate();
-            /* static mut FRAME_COUNT: u32 = 0;
-            unsafe {
-                FRAME_COUNT += 1;
-                if FRAME_COUNT % 30 == 0 {
-                    let nodes_count = self.kdtree.nodes.len();
-                    let ratio = nodes_count as f32 / self.bodies.len() as f32;
-                    let tmp = FRAME_COUNT;
-                    println!(
-                        "Frame {}: {} bodies → {} nodes (ratio: {:.2})",
-                        tmp,
-                        self.bodies.len(),
-                        nodes_count,
-                        ratio
-                    );
-
-                    if ratio > 10.0 {
-                        println!("⚠️  WARNING: Trop de nodes! Subdivisions excessives détectées!");
-                    }
-                }
-            } */
-            //println!("{}", self.kdtree);
-            //self.kdtree.display_with_bodies(&self.bodies);
+        #[cfg(feature = "cuda")]
+        {
+            use crate::cuda::{compute_forces_cuda, update_bodies_cuda};
 
             for body in &mut self.bodies {
                 body.reset_acceleration();
-                body.acc = self.kdtree.acc(body.pos);
+            }
+
+            compute_forces_cuda(&mut self.bodies, 1.0);
+            // update_bodies_cuda(&mut self.bodies, self.dt);
+
+            for body in &mut self.bodies {
+                body.update(self.dt);
             }
         }
 
-        /* for body in &mut self.bodies {
-            println!(
-                "Body before : pos : {} vel : {} acc : {} vel_norm : {} acc_norm : {}",
-                body.pos,
-                body.vel,
-                body.acc,
-                body.vel.norm(),
-                body.acc.norm()
-            );
-        } */
+        #[cfg(not(feature = "cuda"))]
+        {
+            // Version CPU
+            let method = false;
 
-        for body in &mut self.bodies {
-            body.update(self.dt);
+            if method {
+                use crate::simul::compute_nsquares;
+                compute_nsquares(&mut self.bodies);
+            } else {
+                // Barnes-Hut...
+                let kdcell = KdCell::new_containing(&self.bodies);
+                self.kdtree.clear(kdcell);
+
+                for body in &self.bodies {
+                    self.kdtree.insert(body.pos, body.mass);
+                }
+
+                self.kdtree.propagate();
+
+                for body in &mut self.bodies {
+                    body.reset_acceleration();
+                    body.acc = self.kdtree.acc(body.pos);
+                }
+            }
+
+            for body in &mut self.bodies {
+                body.update(self.dt);
+            }
         }
 
         /* for body in &mut self.bodies {
