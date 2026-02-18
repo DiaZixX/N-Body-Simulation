@@ -33,6 +33,57 @@ impl Vertex {
     }
 }
 
+/// @brief Generates a unit sphere mesh for instancing
+///
+/// @param stacks Number of vertical divisions
+/// @param sectors Number of horizontal divisions
+/// @return Tuple of (vertices, indices)
+pub fn generate_unit_sphere(stacks: u32, sectors: u32) -> (Vec<Vertex>, Vec<u32>) {
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
+
+    // Generate vertices
+    for i in 0..=stacks {
+        let stack_angle =
+            std::f32::consts::PI / 2.0 - (i as f32 * std::f32::consts::PI / stacks as f32);
+        let xy = stack_angle.cos();
+        let z = stack_angle.sin();
+
+        for j in 0..=sectors {
+            let sector_angle = j as f32 * 2.0 * std::f32::consts::PI / sectors as f32;
+            let x = xy * sector_angle.cos();
+            let y = xy * sector_angle.sin();
+
+            vertices.push(Vertex {
+                position: [x, y, z],
+                color: [1.0, 1.0, 1.0],
+            });
+        }
+    }
+
+    // Generate indices
+    for i in 0..stacks {
+        let k1 = i * (sectors + 1);
+        let k2 = k1 + sectors + 1;
+
+        for j in 0..sectors {
+            if i != 0 {
+                indices.push(k1 + j);
+                indices.push(k2 + j);
+                indices.push(k1 + j + 1);
+            }
+
+            if i != stacks - 1 {
+                indices.push(k1 + j + 1);
+                indices.push(k2 + j);
+                indices.push(k2 + j + 1);
+            }
+        }
+    }
+
+    (vertices, indices)
+}
+
 /// @brief Generates vertices and indices for a circle (2D)
 ///
 /// @param center_x X coordinate of circle center

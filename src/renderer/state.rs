@@ -9,7 +9,8 @@ use crate::body::Body;
 use crate::kdtree::{KdCell, KdTree};
 
 use super::camera::{Camera, CameraController, CameraUniform};
-use super::vertex::{Vertex, bodies_to_vertices_indices};
+use super::instance::{InstanceRaw, bodies_to_instances};
+use super::vertex::{Vertex, generate_unit_sphere};
 
 /// @brief Main rendering and simulation state
 pub struct State {
@@ -21,8 +22,10 @@ pub struct State {
     pub render_pipeline: wgpu::RenderPipeline,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
+    pub instance_buffer: wgpu::Buffer,
     pub window: Arc<Window>,
     pub num_indices: u32,
+    pub num_instances: u32,
     pub camera: Camera,
     pub camera_controller: CameraController,
     pub camera_uniform: CameraUniform,
@@ -91,7 +94,7 @@ impl State {
         });
 
         use crate::simul::uniform_disc;
-        let bodies = uniform_disc(1000);
+        let bodies = uniform_disc(100_000);
         //use crate::simul::generate_solar_system;
         //let bodies = generate_solar_system();
         // use crate::simul::generate_gaussian;
@@ -103,7 +106,10 @@ impl State {
             0.02,                  // radius
         ); */
 
-        let (vertices, indices) = bodies_to_vertices_indices(&bodies);
+        // Create unit sphere mesh (will be instanced for each body)
+        let (vertices, indices) = generate_unit_sphere(8, 16);
+
+        // let (vertices, indices) = bodies_to_vertices_indices(&bodies);
         let mut kdtree = KdTree::new(1.0, 1.0);
 
         let kdcell = KdCell::new_containing(&bodies);
@@ -122,6 +128,16 @@ impl State {
         });
 
         let num_indices = indices.len() as u32;
+
+        // Create instance buffer
+        let instances = bodies_to_instances(&bodies, 5.0);
+        let num_instances = instances.len() as u32;
+
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&instances),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
 
         let camera = Camera {
             eye: (0.0, 0.5, 3.0).into(),
@@ -181,7 +197,7 @@ impl State {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[Vertex::desc()],
+                buffers: &[Vertex::desc(), InstanceRaw::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -222,8 +238,10 @@ impl State {
             render_pipeline,
             vertex_buffer,
             index_buffer,
+            instance_buffer,
             window,
             num_indices,
+            num_instances,
             camera,
             camera_controller,
             camera_uniform,
@@ -315,26 +333,10 @@ impl State {
             );
         } */
 
-        let (vertices, indices) = bodies_to_vertices_indices(&self.bodies);
-
-        // === SOLUTION: Recréer les buffers au lieu de write_buffer ===
-        self.vertex_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-
-        self.index_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
-
-        self.num_indices = indices.len() as u32;
+        // Update instance buffer
+        let instances = bodies_to_instances(&self.bodies, 5.0);
+        self.queue
+            .write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instances));
     }
 
     /// @brief Renders the current frame
@@ -383,8 +385,9 @@ impl State {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.num_instances);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
