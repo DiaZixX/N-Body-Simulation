@@ -67,18 +67,18 @@ pub fn compute_forces_cuda(bodies: &mut [Body], epsilon: f32) {
     let epsilon_sq = epsilon * epsilon;
 
     // Debug: afficher quelques positions avant
-    if n > 0 {
-        println!(
-            "CUDA compute - Body 0 avant: pos={}, vel={}, acc={}",
-            bodies[0].pos, bodies[0].vel, bodies[0].acc
-        );
-        if n > 1 {
-            println!(
-                "CUDA compute - Body 1 avant: pos={}, vel={}, acc={}",
-                bodies[1].pos, bodies[1].vel, bodies[1].acc
-            );
-        }
-    }
+    // if n > 0 {
+    //     println!(
+    //         "CUDA compute - Body 0 avant: pos={}, vel={}, acc={}",
+    //         bodies[0].pos, bodies[0].vel, bodies[0].acc
+    //     );
+    //     if n > 1 {
+    //         println!(
+    //             "CUDA compute - Body 1 avant: pos={}, vel={}, acc={}",
+    //             bodies[1].pos, bodies[1].vel, bodies[1].acc
+    //         );
+    //     }
+    // }
 
     // Prepare data arrays
     let pos_x: Vec<f32> = bodies.iter().map(|b| b.pos.x).collect();
@@ -128,12 +128,12 @@ pub fn compute_forces_cuda(bodies: &mut [Body], epsilon: f32) {
         }
 
         // Debug
-        if n > 0 {
-            println!("CUDA compute - Body 0 après: acc={}", bodies[0].acc);
-            if n > 1 {
-                println!("CUDA compute - Body 1 après: acc={}", bodies[1].acc);
-            }
-        }
+        // if n > 0 {
+        //     println!("CUDA compute - Body 0 après: acc={}", bodies[0].acc);
+        //     if n > 1 {
+        //         println!("CUDA compute - Body 1 après: acc={}", bodies[1].acc);
+        //     }
+        // }
         return;
     }
 
@@ -144,12 +144,12 @@ pub fn compute_forces_cuda(bodies: &mut [Body], epsilon: f32) {
     }
 
     // Debug
-    if n > 0 {
-        println!("CUDA compute - Body 0 après: acc={}", bodies[0].acc);
-        if n > 1 {
-            println!("CUDA compute - Body 1 après: acc={}", bodies[1].acc);
-        }
-    }
+    // if n > 0 {
+    //     println!("CUDA compute - Body 0 après: acc={}", bodies[0].acc);
+    //     if n > 1 {
+    //         println!("CUDA compute - Body 1 après: acc={}", bodies[1].acc);
+    //     }
+    // }
 }
 
 /// @brief Updates bodies using CUDA
