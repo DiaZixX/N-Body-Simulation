@@ -10,6 +10,7 @@ use std::time::Instant;
 use crate::cuda::compute_forces_cuda;
 
 /// @brief Simulation configuration
+#[derive(Debug, Clone)]
 pub struct SimulationConfig {
     pub num_bodies: usize,
     pub num_steps: usize,
@@ -36,10 +37,38 @@ impl Default for SimulationConfig {
     }
 }
 
+impl SimulationConfig {
+    /// @brief Validates the configuration
+    pub fn validate(&self) -> Result<(), String> {
+        if self.num_bodies == 0 {
+            return Err("Number of bodies must be greater than 0".to_string());
+        }
+        if self.num_steps == 0 {
+            return Err("Number of steps must be greater than 0".to_string());
+        }
+        if self.dt <= 0.0 {
+            return Err("Time step (dt) must be positive".to_string());
+        }
+        if self.theta <= 0.0 {
+            return Err("Theta must be positive".to_string());
+        }
+        if self.epsilon < 0.0 {
+            return Err("Epsilon must be non-negative".to_string());
+        }
+        if self.energy_print_interval == 0 {
+            return Err("Energy print interval must be greater than 0".to_string());
+        }
+        Ok(())
+    }
+}
+
 /// @brief Runs a headless simulation
 ///
 /// @param config Simulation configuration
-pub fn run_headless(config: SimulationConfig) {
+pub fn run_headless(config: SimulationConfig) -> Result<(), String> {
+    // Validate configuration
+    config.validate()?;
+
     println!("╔═══════════════════════════════════════════════════════════════╗");
     println!("║                  N-BODY HEADLESS SIMULATION                   ║");
     println!("╠═══════════════════════════════════════════════════════════════╣");
@@ -200,4 +229,6 @@ pub fn run_headless(config: SimulationConfig) {
 
     // Print performance summary
     perf_stats.print_summary(config.num_bodies);
+
+    Ok(())
 }

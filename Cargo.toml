@@ -30,6 +30,7 @@ wgpu = "27.0.0"
 pollster = "0.3"
 bytemuck = { version = "1.24", features = [ "derive" ] }
 cgmath = "0.18"
+clap = { version = "4.5", features = ["derive"] }
 
 [build-dependencies]
 cc = "1.0"
