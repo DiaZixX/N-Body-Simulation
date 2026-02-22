@@ -10,20 +10,21 @@ use winit::{
     window::Window,
 };
 
+use super::config::GuiConfig;
 use super::state::State;
 
 /// @brief Main application structure
 pub struct App {
     pub state: Option<State>,
-    pub use_barnes_hut: bool,
+    pub gui_config: GuiConfig,
 }
 
 impl App {
     /// @brief Creates a new application
-    pub fn new(use_barnes_hut: bool) -> Self {
+    pub fn new(gui_config: GuiConfig) -> Self {
         Self {
             state: None,
-            use_barnes_hut,
+            gui_config,
         }
     }
 }
@@ -35,7 +36,7 @@ impl ApplicationHandler<State> for App {
 
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
-        self.state = Some(pollster::block_on(State::new(window, self.use_barnes_hut)).unwrap());
+        self.state = Some(pollster::block_on(State::new(window, self.gui_config.clone())).unwrap());
     }
 
     #[allow(unused_mut)]
@@ -87,11 +88,11 @@ impl ApplicationHandler<State> for App {
 /// @brief Runs the application
 ///
 /// @return Result indicating success or error
-pub fn run(use_barnes_hut: bool) -> anyhow::Result<()> {
+pub fn run(gui_config: GuiConfig) -> anyhow::Result<()> {
     env_logger::init();
 
     let event_loop = EventLoop::with_user_event().build()?;
-    let mut app = App::new(use_barnes_hut);
+    let mut app = App::new(gui_config);
     event_loop.run_app(&mut app)?;
 
     Ok(())

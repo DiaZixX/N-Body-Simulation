@@ -2,7 +2,7 @@
 //! @brief Main entry point for the n-body simulation
 
 use clap::{Parser, Subcommand};
-use n_body_simulation::{SimulationConfig, run, run_headless};
+use n_body_simulation::{GuiConfig, SimulationConfig, run, run_headless};
 
 /// N-Body Simulation: Gravitational dynamics simulator
 #[derive(Parser, Debug)]
@@ -16,6 +16,22 @@ struct Cli {
 enum Commands {
     /// Run simulation with graphical interface
     Gui {
+        /// Number of bodies to simulate
+        #[arg(short = 'n', long, default_value_t = 100_000)]
+        num_bodies: usize,
+
+        /// Time step (dt) for integration
+        #[arg(long, default_value_t = 0.05)]
+        dt: f32,
+
+        /// Barnes-Hut theta parameter (lower = more accurate, slower)
+        #[arg(long, default_value_t = 1.0)]
+        theta: f32,
+
+        /// Softening parameter epsilon (prevents singularities)
+        #[arg(long, default_value_t = 1.0)]
+        epsilon: f32,
+
         /// Use direct N² method instead of Barnes-Hut
         #[arg(long)]
         direct: bool,
@@ -63,27 +79,56 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Gui { direct }) => {
+        Some(Commands::Gui {
+            num_bodies,
+            dt,
+            theta,
+            epsilon,
+            direct,
+        }) => {
+            let config = GuiConfig::new(num_bodies, dt, theta, epsilon, !direct);
+
+            if let Err(e) = config.validate() {
+                eprintln!("Configuration error: {}", e);
+                std::process::exit(1);
+            }
+
             let method = if direct { "N²" } else { "Barnes-Hut" };
 
             #[cfg(feature = "cuda")]
-            println!("Starting graphical simulation (GPU {})...\n", method);
+            println!("Starting graphical simulation (GPU {})...", method);
 
             #[cfg(not(feature = "cuda"))]
-            println!("Starting graphical simulation (CPU {})...\n", method);
+            println!("Starting graphical simulation (CPU {})...", method);
 
-            run(!direct) // use_barnes_hut = !direct
+            println!("Configuration:");
+            println!("  Bodies: {}", num_bodies);
+            println!("  dt: {}", dt);
+            println!("  theta: {}", theta);
+            println!("  epsilon: {}", epsilon);
+            println!();
+
+            run(config)
         }
 
         None => {
-            // Défaut: GUI avec Barnes-Hut
+            // Défaut: GUI avec Barnes-Hut et paramètres par défaut
+            let config = GuiConfig::default();
+
             #[cfg(feature = "cuda")]
-            println!("Starting graphical simulation (GPU Barnes-Hut)...\n");
+            println!("Starting graphical simulation (GPU Barnes-Hut)...");
 
             #[cfg(not(feature = "cuda"))]
-            println!("Starting graphical simulation (CPU Barnes-Hut)...\n");
+            println!("Starting graphical simulation (CPU Barnes-Hut)...");
 
-            run(true)
+            println!("Configuration:");
+            println!("  Bodies: {}", config.num_bodies);
+            println!("  dt: {}", config.dt);
+            println!("  theta: {}", config.theta);
+            println!("  epsilon: {}", config.epsilon);
+            println!();
+
+            run(config)
         }
 
         Some(Commands::Headless {

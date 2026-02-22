@@ -12,6 +12,8 @@ use super::camera::{Camera, CameraController, CameraUniform};
 use super::instance::{InstanceRaw, bodies_to_instances};
 use super::vertex::{Vertex, generate_unit_sphere};
 
+use super::config::GuiConfig;
+
 /// @brief Main rendering and simulation state
 pub struct State {
     pub surface: wgpu::Surface<'static>,
@@ -32,17 +34,13 @@ pub struct State {
     pub camera_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
     pub bodies: Vec<Body>,
-    pub dt: f32,
     pub kdtree: KdTree,
-    pub use_barnes_hut: bool,
+    pub gui_config: GuiConfig, // NOUVEAU: contient dt, theta, epsilon, use_barnes_hut
 }
 
 impl State {
     /// @brief Creates a new rendering state
-    ///
-    /// @param window Window to render to
-    /// @return New state instance
-    pub async fn new(window: Arc<Window>, use_barnes_hut: bool) -> anyhow::Result<State> {
+    pub async fn new(window: Arc<Window>, gui_config: GuiConfig) -> anyhow::Result<State> {
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -94,27 +92,15 @@ impl State {
             source: wgpu::ShaderSource::Wgsl(include_str!("./shader.wgsl").into()),
         });
 
+        // Generate bodies using configured number
         use crate::simul::uniform_disc;
-        let bodies = uniform_disc(100_000);
-        //use crate::simul::generate_solar_system;
-        //let bodies = generate_solar_system();
-        // use crate::simul::generate_gaussian;
-        /* let bodies = generate_gaussian(
-            100,                   // nombre de bodies
-            Vector::new(0.0, 0.0), // centre
-            0.3,                   // sigma
-            1.0,                   // masse
-            0.02,                  // radius
-        ); */
+        let bodies = uniform_disc(gui_config.num_bodies);
+
+        let mut kdtree = KdTree::new(gui_config.theta, gui_config.epsilon);
 
         // Create unit sphere mesh (will be instanced for each body)
         let (vertices, indices) = generate_unit_sphere(8, 16);
-
-        // let (vertices, indices) = bodies_to_vertices_indices(&bodies);
-        let mut kdtree = KdTree::new(1.0, 1.0);
-
-        let kdcell = KdCell::new_containing(&bodies);
-        kdtree.clear(kdcell);
+        let num_indices = indices.len() as u32;
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -127,8 +113,6 @@ impl State {
             contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
-
-        let num_indices = indices.len() as u32;
 
         // Create instance buffer
         let instances = bodies_to_instances(&bodies, 5.0);
@@ -230,6 +214,9 @@ impl State {
             cache: None,
         });
 
+        let kdcell = KdCell::new_containing(&bodies);
+        kdtree.clear(kdcell);
+
         Ok(Self {
             surface,
             device,
@@ -249,16 +236,12 @@ impl State {
             camera_buffer,
             camera_bind_group,
             bodies,
-            dt: 0.05, //100000.0,
             kdtree,
-            use_barnes_hut,
+            gui_config, // NOUVEAU
         })
     }
 
     /// @brief Resizes the rendering surface
-    ///
-    /// @param width New width
-    /// @param height New height
     pub fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
             self.config.width = width;
@@ -278,6 +261,7 @@ impl State {
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
 
+        // CHOIX: CPU ou GPU
         #[cfg(feature = "cuda")]
         {
             use crate::cuda::{compute_forces_barnes_hut_cuda, compute_forces_cuda};
@@ -286,25 +270,31 @@ impl State {
                 body.reset_acceleration();
             }
 
-            if !self.use_barnes_hut {
-                compute_forces_cuda(&mut self.bodies, 1.0, 1.0);
+            // Utiliser la configuration
+            if self.gui_config.use_barnes_hut {
+                compute_forces_barnes_hut_cuda(
+                    &mut self.bodies,
+                    self.gui_config.theta,
+                    self.gui_config.epsilon,
+                    1.0,
+                );
             } else {
-                compute_forces_barnes_hut_cuda(&mut self.bodies, 1.0, 1.0, 1.0);
+                compute_forces_cuda(&mut self.bodies, self.gui_config.epsilon, 1.0);
             }
 
             for body in &mut self.bodies {
-                body.update(self.dt);
+                body.update(self.gui_config.dt);
             }
         }
 
         #[cfg(not(feature = "cuda"))]
         {
-            // Version CPU
-            if !self.use_barnes_hut {
-                use crate::simul::compute_nsquares;
-                compute_nsquares(&mut self.bodies);
-            } else {
-                // Barnes-Hut...
+            // Utiliser la configuration
+            if self.gui_config.use_barnes_hut {
+                // Barnes-Hut CPU avec theta et epsilon configurables
+                self.kdtree.t_sq = self.gui_config.theta * self.gui_config.theta;
+                self.kdtree.e_sq = self.gui_config.epsilon * self.gui_config.epsilon;
+
                 let kdcell = KdCell::new_containing(&self.bodies);
                 self.kdtree.clear(kdcell);
 
@@ -318,10 +308,14 @@ impl State {
                     body.reset_acceleration();
                     body.acc = self.kdtree.acc(body.pos);
                 }
+            } else {
+                // N² CPU
+                use crate::simul::compute_nsquares;
+                compute_nsquares(&mut self.bodies);
             }
 
             for body in &mut self.bodies {
-                body.update(self.dt);
+                body.update(self.gui_config.dt);
             }
         }
 
@@ -332,8 +326,6 @@ impl State {
     }
 
     /// @brief Renders the current frame
-    ///
-    /// @return Result indicating success or surface error
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         self.window.request_redraw();
 
@@ -379,6 +371,8 @@ impl State {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+
+            // Draw all instances with one call!
             render_pass.draw_indexed(0..self.num_indices, 0, 0..self.num_instances);
         }
 
@@ -387,11 +381,8 @@ impl State {
 
         Ok(())
     }
+
     /// @brief Handles keyboard input
-    ///
-    /// @param event_loop Event loop for exit control
-    /// @param code Key code
-    /// @param is_pressed Whether key is pressed
     pub fn handle_key(&mut self, event_loop: &ActiveEventLoop, code: KeyCode, is_pressed: bool) {
         if code == KeyCode::Escape && is_pressed {
             event_loop.exit();
