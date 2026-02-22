@@ -34,6 +34,7 @@ pub struct State {
     pub bodies: Vec<Body>,
     pub dt: f32,
     pub kdtree: KdTree,
+    pub use_barnes_hut: bool,
 }
 
 impl State {
@@ -41,7 +42,7 @@ impl State {
     ///
     /// @param window Window to render to
     /// @return New state instance
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<State> {
+    pub async fn new(window: Arc<Window>, use_barnes_hut: bool) -> anyhow::Result<State> {
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -250,6 +251,7 @@ impl State {
             bodies,
             dt: 0.05, //100000.0,
             kdtree,
+            use_barnes_hut,
         })
     }
 
@@ -284,8 +286,11 @@ impl State {
                 body.reset_acceleration();
             }
 
-            compute_forces_cuda(&mut self.bodies, 1.0);
-            // update_bodies_cuda(&mut self.bodies, self.dt);
+            if !self.use_barnes_hut {
+                compute_forces_cuda(&mut self.bodies, 1.0, 1.0);
+            } else {
+                compute_forces_barnes_hut_cuda(&mut self.bodies, 1.0, 1.0, 1.0);
+            }
 
             for body in &mut self.bodies {
                 body.update(self.dt);
@@ -295,9 +300,7 @@ impl State {
         #[cfg(not(feature = "cuda"))]
         {
             // Version CPU
-            let method = false;
-
-            if method {
+            if !self.use_barnes_hut {
                 use crate::simul::compute_nsquares;
                 compute_nsquares(&mut self.bodies);
             } else {
@@ -321,17 +324,6 @@ impl State {
                 body.update(self.dt);
             }
         }
-
-        /* for body in &mut self.bodies {
-            println!(
-                "Body after : pos : {} vel : {} acc {} vel_norm : {} acc_norm : {}",
-                body.pos,
-                body.vel,
-                body.acc,
-                body.vel.norm(),
-                body.acc.norm()
-            );
-        } */
 
         // Update instance buffer
         let instances = bodies_to_instances(&self.bodies, 5.0);

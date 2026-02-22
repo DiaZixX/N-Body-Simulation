@@ -15,7 +15,11 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Run simulation with graphical interface
-    Gui,
+    Gui {
+        /// Use direct N² method instead of Barnes-Hut
+        #[arg(long)]
+        direct: bool,
+    },
 
     /// Run headless simulation (no graphics)
     Headless {
@@ -43,13 +47,9 @@ enum Commands {
         #[arg(short = 'e', long, default_value_t = 10)]
         energy_interval: usize,
 
-        /// Use direct N² method instead of Barnes-Hut (slower but exact)
+        /// Use direct N² method instead of Barnes-Hut
         #[arg(long)]
         direct: bool,
-
-        /// Use GPU N² instead of GPU Barnes-Hut (only with --features cuda)
-        #[arg(long)]
-        gpu_direct: bool,
 
         /// Disable progress bar
         #[arg(long)]
@@ -63,10 +63,29 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Gui) | None => {
-            println!("Starting graphical simulation...\n");
-            run()
+        Some(Commands::Gui { direct }) => {
+            let method = if direct { "N²" } else { "Barnes-Hut" };
+
+            #[cfg(feature = "cuda")]
+            println!("Starting graphical simulation (GPU {})...\n", method);
+
+            #[cfg(not(feature = "cuda"))]
+            println!("Starting graphical simulation (CPU {})...\n", method);
+
+            run(!direct) // use_barnes_hut = !direct
         }
+
+        None => {
+            // Défaut: GUI avec Barnes-Hut
+            #[cfg(feature = "cuda")]
+            println!("Starting graphical simulation (GPU Barnes-Hut)...\n");
+
+            #[cfg(not(feature = "cuda"))]
+            println!("Starting graphical simulation (CPU Barnes-Hut)...\n");
+
+            run(true)
+        }
+
         Some(Commands::Headless {
             num_bodies,
             num_steps,
@@ -75,7 +94,6 @@ fn main() -> anyhow::Result<()> {
             epsilon,
             energy_interval,
             direct,
-            gpu_direct,
             no_progress,
         }) => {
             let config = SimulationConfig {
@@ -85,9 +103,6 @@ fn main() -> anyhow::Result<()> {
                 theta,
                 epsilon,
                 energy_print_interval: energy_interval,
-                #[cfg(feature = "cuda")]
-                use_barnes_hut: !gpu_direct,
-                #[cfg(not(feature = "cuda"))]
                 use_barnes_hut: !direct,
                 show_progress: !no_progress,
             };

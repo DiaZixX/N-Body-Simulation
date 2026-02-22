@@ -15,12 +15,16 @@ use super::state::State;
 /// @brief Main application structure
 pub struct App {
     pub state: Option<State>,
+    pub use_barnes_hut: bool,
 }
 
 impl App {
     /// @brief Creates a new application
-    pub fn new() -> Self {
-        Self { state: None }
+    pub fn new(use_barnes_hut: bool) -> Self {
+        Self {
+            state: None,
+            use_barnes_hut,
+        }
     }
 }
 
@@ -31,7 +35,7 @@ impl ApplicationHandler<State> for App {
 
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
-        self.state = Some(pollster::block_on(State::new(window)).unwrap());
+        self.state = Some(pollster::block_on(State::new(window, self.use_barnes_hut)).unwrap());
     }
 
     #[allow(unused_mut)]
@@ -83,11 +87,11 @@ impl ApplicationHandler<State> for App {
 /// @brief Runs the application
 ///
 /// @return Result indicating success or error
-pub fn run() -> anyhow::Result<()> {
+pub fn run(use_barnes_hut: bool) -> anyhow::Result<()> {
     env_logger::init();
 
     let event_loop = EventLoop::with_user_event().build()?;
-    let mut app = App::new();
+    let mut app = App::new(use_barnes_hut);
     event_loop.run_app(&mut app)?;
 
     Ok(())
