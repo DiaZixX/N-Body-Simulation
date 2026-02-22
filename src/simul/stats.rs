@@ -154,14 +154,14 @@ impl PerformanceStats {
         // Step timing statistics
         if !self.step_times.is_empty() {
             println!("║ Per-Step Timing:                                              ║");
-            self.print_timing_stats("Total step time", &self.step_times);
+            self.print_timing_stats(&self.step_times);
         }
 
         // Force computation statistics
         if !self.force_computation_times.is_empty() {
             println!("╠═══════════════════════════════════════════════════════════════╣");
             println!("║ Force Computation Timing:                                     ║");
-            self.print_timing_stats("Force computation", &self.force_computation_times);
+            self.print_timing_stats(&self.force_computation_times);
 
             // Percentage of step time
             let mean_step = Self::mean_duration(&self.step_times).as_secs_f64();
@@ -181,7 +181,7 @@ impl PerformanceStats {
         if !self.integration_times.is_empty() {
             println!("╠═══════════════════════════════════════════════════════════════╣");
             println!("║ Integration Timing:                                           ║");
-            self.print_timing_stats("Integration", &self.integration_times);
+            self.print_timing_stats(&self.integration_times);
 
             // Percentage of step time
             let mean_step = Self::mean_duration(&self.step_times).as_secs_f64();
@@ -201,7 +201,7 @@ impl PerformanceStats {
     }
 
     /// @brief Prints timing statistics for a specific category
-    fn print_timing_stats(&self, category: &str, durations: &[Duration]) {
+    fn print_timing_stats(&self, durations: &[Duration]) {
         let mean = Self::mean_duration(durations);
         let std_dev = Self::std_dev_duration(durations);
         let min = Self::min_duration(durations);
@@ -238,15 +238,6 @@ impl PerformanceStats {
             "║   99th percentile:              {:>12.6} s                ║",
             p99.as_secs_f64()
         );
-    }
-
-    /// @brief Pads a string to a specific length
-    fn pad_string(s: &str, length: usize) -> String {
-        if s.len() >= length {
-            s[..length].to_string()
-        } else {
-            format!("{}{}", s, " ".repeat(length - s.len()))
-        }
     }
 
     /// @brief Prints a progress bar for live updates

@@ -1,8 +1,9 @@
 //! @file headless.rs
 //! @brief Headless simulation runner (no graphics)
 
-use crate::body::Body;
+#[cfg(not(feature = "cuda"))]
 use crate::kdtree::{KdCell, KdTree};
+
 use crate::simul::{PerformanceStats, print_energy_stats, uniform_disc};
 use std::time::Instant;
 
@@ -107,22 +108,31 @@ pub fn run_headless(config: SimulationConfig) -> Result<(), String> {
     );
 
     #[cfg(feature = "cuda")]
-    println!(
-        "║   Mode:                         {:>12}                  ║",
-        "CUDA (GPU)"
-    );
+    {
+        if config.use_barnes_hut {
+            println!(
+                "║   Mode:                     {:>16}                  ║",
+                "Barnes-Hut (GPU)"
+            );
+        } else {
+            println!(
+                "║   Mode:                     {:>16}                  ║",
+                "N² Direct (GPU)"
+            );
+        }
+    }
 
     #[cfg(not(feature = "cuda"))]
     {
         if config.use_barnes_hut {
             println!(
-                "║   Mode:                         {:>12}                  ║",
-                "Barnes-Hut"
+                "║   Mode:                     {:>16}                  ║",
+                "Barnes-Hut (CPU)"
             );
         } else {
             println!(
-                "║   Mode:                         {:>12}                  ║",
-                "N² Direct"
+                "║   Mode:                     {:>16}                  ║",
+                "N² Direct (CPU)"
             );
         }
     }

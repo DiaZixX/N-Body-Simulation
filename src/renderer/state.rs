@@ -280,7 +280,7 @@ impl State {
 
         #[cfg(feature = "cuda")]
         {
-            use crate::cuda::{compute_forces_cuda, update_bodies_cuda};
+            use crate::cuda::{compute_forces_barnes_hut_cuda, compute_forces_cuda};
 
             for body in &mut self.bodies {
                 body.reset_acceleration();
