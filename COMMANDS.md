@@ -1,251 +1,146 @@
 # N-Body Simulation - Command Reference
 
-## Project Structure
-```
-n-body-simulation/
-├── Cargo.toml
-├── src/
-│   ├── main.rs          # Main simulation entry point
-│   ├── lib.rs           # Library entry point
-│   ├── body/            # Physics body implementation
-│   │   ├── mod.rs
-│   │   └── body.rs
-│   └── geom/            # Geometric types (vectors)
-│       ├── mod.rs
-│       ├── vec2.rs      # 2D vector implementation
-│       ├── vec3.rs      # 3D vector implementation
-│       └── vector.rs    # Conditional vector type
-└── tests/
-    └── vector_tests.rs  # Integration tests
-```
+## Graphic Mode (GUI)
 
-## Build Commands
-
-### Compilation
+### 2D
 ```bash
-# Build the project (2D mode, default)
-cargo build
-
-# Build the project (3D mode)
-cargo build --no-default-features --features vec3
-
-# Build with optimizations (release mode)
-cargo build --release
-
-# Build 3D with optimizations
-cargo build --release --no-default-features --features vec3
-```
-
-### Check (faster than build, no executable)
-```bash
-# Check compilation without building
-cargo check
-
-# Check 3D mode
-cargo check --no-default-features --features vec3
-```
-
-## Run Commands
-
-### Running the Simulation
-```bash
-# Run the simulation in 2D mode (default)
-cargo run
-
-# Run the simulation in 3D mode
-cargo run --no-default-features --features vec3
-
-# Run with release optimizations (2D)
+# Barnes-Hut (default)
 cargo run --release
 
-# Run with release optimizations (3D)
+# Barnes-Hut (explicit)
+cargo run --release gui
+
+# N² Direct
+cargo run --release gui --direct
+
+# GPU Barnes-Hut
+cargo run --release --features cuda
+
+# GPU Barnes-Hut (explicit)
+cargo run --release --features cuda gui
+
+# GPU N² Direct
+cargo run --release --features cuda gui --direct
+```
+
+#### 3D
+```bash
+# CPU Barnes-Hut (default)
 cargo run --release --no-default-features --features vec3
+
+# CPU N² Direct
+cargo run --release --no-default-features --features vec3 gui --direct
+
+# GPU Barnes-Hut
+cargo run --release --no-default-features --features "vec3,cuda"
+
+# GPU N² Direct
+cargo run --release --no-default-features --features "vec3,cuda" gui --direct
 ```
 
-## Test Commands
+## Headless Mode (No Interface)
 
-### Running All Tests
+### 2D CPU
 ```bash
-# Run all tests in 2D mode
-cargo test
+# Barnes-Hut
+cargo run --release headless -n 100000
 
-# Run all tests in 3D mode
-cargo test --no-default-features --features vec3
-
-# Run tests with verbose output
-cargo test -- --nocapture
-
-# Run tests and show all output (including successful tests)
-cargo test -- --show-output
+# N² Direct
+cargo run --release headless -n 10000 --direct
 ```
 
-### Running Specific Tests
+### 2D GPU
 ```bash
-# Run a specific test by name
-cargo test test_vector_addition
+# Barnes-Hut
+cargo run --release --features cuda headless -n 500000
 
-# Run all tests containing "vector" in the name
-cargo test vector
-
-# Run all tests containing "body" in the name
-cargo test body
-
-# Run a specific test in 3D mode
-cargo test test_vector_addition --no-default-features --features vec3
+# N² Direct
+cargo run --release --features cuda headless -n 100000 --direct
 ```
 
-### Test with Coverage (requires additional setup)
+### 3D CPU
 ```bash
-# Run tests and show which code is covered
-cargo test --verbose
+# Barnes-Hut
+cargo run --release --no-default-features --features vec3 headless -n 100000
+
+# N² Direct
+cargo run --release --no-default-features --features vec3 headless -n 10000 --direct
 ```
 
-## Clean Commands
+### 3D GPU
 ```bash
-# Remove build artifacts
-cargo clean
+# Barnes-Hut
+cargo run --release --no-default-features --features "vec3,cuda" headless -n 500000
 
-# Clean and rebuild
-cargo clean && cargo build
+# N² Direct
+cargo run --release --no-default-features --features "vec3,cuda" headless -n 100000 --direct
 ```
 
-## Documentation Commands
+## Recap 
+
+### Graphic Mode
+
+| Dimension | Method     | Backend | Command                                                                       |
+|-----------|------------|---------|-------------------------------------------------------------------------------|
+| **2D**    | Barnes-Hut | CPU     | `cargo run --release`                                                         |
+| **2D**    | N²         | CPU     | `cargo run --release gui --direct`                                            |
+| **2D**    | Barnes-Hut | CUDA    | `cargo run --release --features cuda`                                         |
+| **2D**    | N²         | CUDA    | `cargo run --release --features cuda gui --direct`                            |
+| **3D**    | Barnes-Hut | CPU     | `cargo run --release --no-default-features --features vec3`                   |
+| **3D**    | N²         | CPU     | `cargo run --release --no-default-features --features vec3 gui --direct`      |
+| **3D**    | Barnes-Hut | CUDA    | `cargo run --release --no-default-features --features "vec3,cuda"`            |
+| **3D**    | N²         | CUDA    | `cargo run --release --no-default-features --features "vec3,cuda" gui --direct` |
+
+### Mode Headless
+
+| Dimension | Method     | Backend | Command                                                                                     |
+|-----------|------------|---------|---------------------------------------------------------------------------------------------|
+| **2D**    | Barnes-Hut | CPU     | `cargo run --release headless -n 100000`                                                    |
+| **2D**    | N²         | CPU     | `cargo run --release headless -n 10000 --direct`                                            |
+| **2D**    | Barnes-Hut | CUDA    | `cargo run --release --features cuda headless -n 500000`                                    |
+| **2D**    | N²         | CUDA    | `cargo run --release --features cuda headless -n 100000 --direct`                           |
+| **3D**    | Barnes-Hut | CPU     | `cargo run --release --no-default-features --features vec3 headless -n 100000`              |
+| **3D**    | N²         | CPU     | `cargo run --release --no-default-features --features vec3 headless -n 10000 --direct`      |
+| **3D**    | Barnes-Hut | CUDA    | `cargo run --release --no-default-features --features "vec3,cuda" headless -n 500000`       |
+| **3D**    | N²         | CUDA    | `cargo run --release --no-default-features --features "vec3,cuda" headless -n 100000 --direct` |
+
+## Use Examples
+
+### Quick Launch
 ```bash
-# Generate and open documentation
-cargo doc --open
+# GUI by default (2D CPU Barnes-Hut)
+cargo run --release
 
-# Generate documentation without dependencies
-cargo doc --no-deps --open
+# GUI 3D GPU Barnes-Hut
+cargo run --release --no-default-features --features "vec3,cuda"
 
-# Generate documentation for 3D mode
-cargo doc --no-default-features --features vec3 --open
+# Headless for benchmark
+cargo run --release --features cuda headless -n 1000000 -s 100 --no-progress
 ```
 
-## Utility Commands
+### Performance comparisons
 ```bash
-# Format code according to Rust style guidelines
-cargo fmt
+# Compare CPU vs GPU (2D Barnes-Hut, 100k bodies)
+time cargo run --release headless -n 100000 -s 100 --no-progress
+time cargo run --release --features cuda headless -n 100000 -s 100 --no-progress
 
-# Check formatting without modifying files
-cargo fmt -- --check
+# Compare N² vs Barnes-Hut (2D GPU, 50k bodies)
+time cargo run --release --features cuda headless -n 50000 -s 100 --direct --no-progress
+time cargo run --release --features cuda headless -n 50000 -s 100 --no-progress
 
-# Lint code with Clippy
-cargo clippy
-
-# Lint with all warnings
-cargo clippy -- -W clippy::all
+# Compare 2D vs 3D (GPU Barnes-Hut, 100k bodies)
+time cargo run --release --features cuda headless -n 100000 -s 100 --no-progress
+time cargo run --release --no-default-features --features "vec3,cuda" headless -n 100000 -s 100 --no-progress
 ```
 
-## Feature Flags
-
-The project supports two mutually exclusive features:
-
-- `vec2` (default): 2D vector operations
-- `vec3`: 3D vector operations with additional dot and cross product
-
-### Using Features
+### Precision test
 ```bash
-# Explicitly enable vec2 (same as default)
-cargo run --features vec2
+# GPU N² (exact reference)
+cargo run --release --features cuda headless -n 10000 -s 1000 --direct --dt 0.001 -e 1
 
-# Disable default features and enable vec3
-cargo run --no-default-features --features vec3
+# GPU Barnes-Hut high precision
+cargo run --release --features cuda headless -n 10000 -s 1000 --theta 0.3 --dt 0.001 -e 1
 
-# Test with vec3
-cargo test --no-default-features --features vec3
-```
-
-## Quick Reference Table
-
-| Command | Description |
-|---------|-------------|
-| `cargo build` | Compile in 2D mode |
-| `cargo build --features vec3` | Compile in 3D mode |
-| `cargo run` | Run simulation (2D) |
-| `cargo run --features vec3` | Run simulation (3D) |
-| `cargo test` | Run all tests (2D) |
-| `cargo test --features vec3` | Run all tests (3D) |
-| `cargo test test_name` | Run specific test |
-| `cargo clean` | Remove build artifacts |
-| `cargo doc --open` | Generate and view documentation |
-| `cargo fmt` | Format code |
-| `cargo clippy` | Lint code |
-
-## Common Workflows
-
-### Development Workflow
-```bash
-# 1. Make changes to code
-# 2. Check if it compiles
-cargo check
-
-# 3. Run tests
-cargo test
-
-# 4. Format code
-cargo fmt
-
-# 5. Lint code
-cargo clippy
-
-# 6. Run the application
-cargo run
-```
-
-### Testing Both Modes
-```bash
-# Test 2D
-cargo test
-
-# Test 3D
-cargo test --no-default-features --features vec3
-```
-
-### Release Build
-```bash
-# Build optimized binary
-cargo build --release
-
-# The binary will be in: target/release/n-body-simulation
-
-# Run optimized version
-./target/release/n-body-simulation
-```
-
-## Environment Variables
-```bash
-# Show more detailed error messages
-RUST_BACKTRACE=1 cargo run
-
-# Full backtrace
-RUST_BACKTRACE=full cargo run
-
-# Enable logging (if using a logger)
-RUST_LOG=debug cargo run
-```
-
-## Tips
-
-- Use `cargo run` for quick iterations during development
-- Use `cargo build --release` for production builds (much faster execution)
-- Use `cargo test` frequently to catch bugs early
-- Use `cargo clippy` to find common mistakes and improvements
-- The `--no-default-features --features vec3` can be shortened in a `.cargo/config.toml` if you work primarily in 3D mode
-
-## Troubleshooting
-
-### Clear build cache if you encounter weird errors
-```bash
-cargo clean
-cargo build
-```
-
-### Check which features are enabled
-```bash
-cargo build --verbose
-```
-
-### Update dependencies
-```bash
-cargo update
+# CPU N² (reference)
+cargo run --release headless -n 10000 -s 1000 --direct --dt 0.001 -e 1
 ```
