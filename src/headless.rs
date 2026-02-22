@@ -7,7 +7,7 @@ use crate::simul::{PerformanceStats, print_energy_stats, uniform_disc};
 use std::time::Instant;
 
 #[cfg(feature = "cuda")]
-use crate::cuda::compute_forces_cuda;
+use crate::cuda::{compute_forces_barnes_hut_cuda, compute_forces_cuda};
 
 /// @brief Simulation configuration
 #[derive(Debug, Clone)]
@@ -161,7 +161,11 @@ pub fn run_headless(config: SimulationConfig) -> Result<(), String> {
             for body in &mut bodies {
                 body.reset_acceleration();
             }
-            compute_forces_cuda(&mut bodies, config.epsilon, 1.0);
+            if config.use_barnes_hut {
+                compute_forces_barnes_hut_cuda(&mut bodies, config.theta, config.epsilon, 1.0);
+            } else {
+                compute_forces_cuda(&mut bodies, config.epsilon, 1.0);
+            }
         }
 
         #[cfg(not(feature = "cuda"))]

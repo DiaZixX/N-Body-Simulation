@@ -18,17 +18,18 @@ fn main() {
     nvcc.cuda(true);
     nvcc.flag("-cudart=static");
     nvcc.flag("-O3");
-
-    // Détecter compute capability (adapter selon votre GPU)
-    // RTX 3080/3090 = sm_86, RTX 4090 = sm_89
     nvcc.flag("-gencode=arch=compute_86,code=sm_86");
 
     if is_vec3 {
         nvcc.define("VEC3", None);
+    } else {
+        nvcc.define("VEC2", None);
     }
 
     nvcc.file("src/cuda/kernel.cu");
+    nvcc.file("src/cuda/barnes_hut.cu");
     nvcc.compile("nbody_cuda");
 
     println!("cargo:rerun-if-changed=src/cuda/kernel.cu");
+    println!("cargo:rerun-if-changed=src/cuda/barnes_hut.cu");
 }

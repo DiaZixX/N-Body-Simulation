@@ -47,6 +47,10 @@ enum Commands {
         #[arg(long)]
         direct: bool,
 
+        /// Use GPU N² instead of GPU Barnes-Hut (only with --features cuda)
+        #[arg(long)]
+        gpu_direct: bool,
+
         /// Disable progress bar
         #[arg(long)]
         no_progress: bool,
@@ -71,6 +75,7 @@ fn main() -> anyhow::Result<()> {
             epsilon,
             energy_interval,
             direct,
+            gpu_direct,
             no_progress,
         }) => {
             let config = SimulationConfig {
@@ -80,6 +85,9 @@ fn main() -> anyhow::Result<()> {
                 theta,
                 epsilon,
                 energy_print_interval: energy_interval,
+                #[cfg(feature = "cuda")]
+                use_barnes_hut: !gpu_direct,
+                #[cfg(not(feature = "cuda"))]
                 use_barnes_hut: !direct,
                 show_progress: !no_progress,
             };
