@@ -25,6 +25,9 @@ target
 
 /target
 
+# Different version
+src/cuda/barnes_hut_old.cu
+src/cuda/barnes_hut_opti.cu
 
 # Added by cargo
 #
