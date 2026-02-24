@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>N-Body Benchmark</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+
+  :root {
+    --bg:        #09090f;
+    --surface:   #0f0f1a;
+    --border:    #1e1e30;
+    --text:      #e2e2f0;
+    --muted:     #6b6b8a;
+    --accent:    #7c6af7;
+
+    --cpu-n2:    #f97316;   /* orange  — CPU N²      */
+    --cpu-bh:    #facc15;   /* yellow  — CPU BH       */
+    --gpu-n2:    #38bdf8;   /* cyan    — GPU N²       */
+    --gpu-bh:    #4ade80;   /* green   — GPU BH       */
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .meta {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: right;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ── Upload zone ── */
+  #upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 2rem;
+  }
+  #upload-zone:hover, #upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(124, 106, 247, 0.05);
+  }
+  #upload-zone .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  #upload-zone p { color: var(--muted); font-size: 0.9rem; }
+  #upload-zone strong { color: var(--text); }
+  #file-input { display: none; }
+
+  /* ── Bouton paste ── */
+  .or-sep {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin: 1rem 0;
+    position: relative;
+  }
+  .or-sep::before, .or-sep::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background: var(--border);
+  }
+  .or-sep::before { left: 0; }
+  .or-sep::after  { right: 0; }
+
+  textarea#csv-paste {
+    width: 100%;
+    height: 130px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    padding: 1rem;
+    resize: vertical;
+    transition: border-color 0.2s;
+    margin-bottom: 0.75rem;
+  }
+  textarea#csv-paste:focus { outline: none; border-color: var(--accent); }
+  textarea#csv-paste::placeholder { color: var(--muted); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1.4rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--text); }
+
+  /* ── Démo ── */
+  #demo-note {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ── Dashboard ── */
+  #dashboard { display: none; }
+
+  /* ── Stat cards ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-card.c1::before { background: var(--cpu-n2); }
+  .stat-card.c2::before { background: var(--cpu-bh); }
+  .stat-card.c3::before { background: var(--gpu-n2); }
+  .stat-card.c4::before { background: var(--gpu-bh); }
+
+  .stat-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.4rem;
+  }
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-family: 'Space Mono', monospace;
+    line-height: 1;
+  }
+  .stat-sub {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.35rem;
+  }
+
+  /* ── Charts ── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .chart-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 1.2rem;
+    letter-spacing: 0.05em;
+  }
+  .chart-title strong { color: var(--text); }
+  .chart-wrap { position: relative; height: 280px; }
+
+  /* ── Table ── */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    overflow-x: auto;
+  }
+  .table-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 1.2rem;
+    letter-spacing: 0.05em;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  th {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: right;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: 0.06em;
+  }
+  th:first-child { text-align: left; }
+  td {
+    text-align: right;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+  }
+  td:first-child { text-align: left; color: var(--muted); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* ── Speedup badge ── */
+  .speedup {
+    display: inline-block;
+    background: rgba(74, 222, 128, 0.12);
+    color: #4ade80;
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.7rem;
+    font-family: 'Space Mono', monospace;
+  }
+  .slowdown {
+    background: rgba(249, 115, 22, 0.12);
+    color: #f97316;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .legend-line {
+    width: 28px;
+    height: 2px;
+    border-radius: 1px;
+  }
+
+  /* ── Reset ── */
+  #reset-btn {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 100;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>N-Body <span>Benchmark</span></h1>
+    <div style="font-size:0.78rem;color:var(--muted);margin-top:0.3rem;font-family:'Space Mono',monospace;">
+      100 steps · CPU N² · CPU BH · GPU N² · GPU BH
+    </div>
+  </div>
+  <div class="meta" id="meta-info">Chargez un CSV pour commencer</div>
+</header>
+
+<!-- Upload / Input -->
+<div id="input-section">
+  <div id="upload-zone" onclick="document.getElementById('file-input').click()">
+    <div class="icon">📂</div>
+    <p><strong>Glissez benchmark_results.csv ici</strong></p>
+    <p>ou cliquez pour parcourir</p>
+  </div>
+  <input type="file" id="file-input" accept=".csv,text/csv">
+
+  <div class="or-sep">ou collez le contenu CSV directement</div>
+
+  <textarea id="csv-paste" placeholder="n,algorithm,backend,time_ms
+10,nsquare,cpu,0.3
+10,barnes-hut,cpu,0.5
+10,nsquare,gpu,45.2
+10,barnes-hut,gpu,47.1
+..."></textarea>
+
+  <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+    <button class="btn" onclick="parsePastedCSV()">▶ Analyser</button>
+    <button class="btn btn-outline" onclick="loadDemo()">Charger données démo</button>
+    <span id="demo-note"></span>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard">
+  <div class="legend">
+    <div class="legend-item"><div class="legend-line" style="background:var(--cpu-n2)"></div>CPU N²</div>
+    <div class="legend-item"><div class="legend-line" style="background:var(--cpu-bh)"></div>CPU Barnes-Hut</div>
+    <div class="legend-item"><div class="legend-line" style="background:var(--gpu-n2)"></div>GPU N²</div>
+    <div class="legend-item"><div class="legend-line" style="background:var(--gpu-bh)"></div>GPU Barnes-Hut</div>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="stats-grid" id="stats-grid"></div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title"><strong>Temps d'exécution</strong> — échelle linéaire (ms)</div>
+      <div class="chart-wrap"><canvas id="chart-linear"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><strong>Temps d'exécution</strong> — échelle logarithmique (ms)</div>
+      <div class="chart-wrap"><canvas id="chart-log"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><strong>Speedup GPU vs CPU</strong> — même algorithme</div>
+      <div class="chart-wrap"><canvas id="chart-speedup"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><strong>Gain BH vs N²</strong> — même backend</div>
+      <div class="chart-wrap"><canvas id="chart-bh-gain"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-title"><strong>TABLEAU COMPLET</strong> — temps en ms · speedup GPU/CPU · gain BH/N²</div>
+    <table id="results-table">
+      <thead>
+        <tr>
+          <th>N corps</th>
+          <th><span class="dot" style="background:var(--cpu-n2)"></span>CPU N²</th>
+          <th><span class="dot" style="background:var(--cpu-bh)"></span>CPU BH</th>
+          <th><span class="dot" style="background:var(--gpu-n2)"></span>GPU N²</th>
+          <th><span class="dot" style="background:var(--gpu-bh)"></span>GPU BH</th>
+          <th>Speedup N²</th>
+          <th>Speedup BH</th>
+          <th>Gain BH (CPU)</th>
+          <th>Gain BH (GPU)</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<button class="btn btn-outline" id="reset-btn" style="display:none" onclick="reset()">↩ Réinitialiser</button>
+
+<script>
+// ============================================================================
+// Données
+// ============================================================================
+
+let charts = {};
+
+// Données démo réalistes (estimées pour 100 steps, GPU RTX 3080)
+const DEMO_DATA = `n,algorithm,backend,time_ms
+10,nsquare,cpu,0.4
+10,barnes-hut,cpu,0.8
+10,nsquare,gpu,48.2
+10,barnes-hut,gpu,52.1
+100,nsquare,cpu,3.1
+100,barnes-hut,cpu,5.2
+100,nsquare,gpu,49.5
+100,barnes-hut,gpu,55.3
+1000,nsquare,cpu,285.0
+1000,barnes-hut,cpu,48.2
+1000,nsquare,gpu,56.1
+1000,barnes-hut,gpu,62.4
+10000,nsquare,cpu,28400.0
+10000,barnes-hut,cpu,620.0
+10000,nsquare,gpu,210.0
+10000,barnes-hut,gpu,145.0
+100000,nsquare,cpu,2850000.0
+100000,barnes-hut,cpu,9800.0
+100000,nsquare,gpu,18500.0
+100000,barnes-hut,gpu,96000.0`;
+
+// ============================================================================
+// Parsing CSV
+// ============================================================================
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n').filter(l => l.trim() && !l.startsWith('#'));
+  if (lines.length === 0) return null;
+
+  // Détecter et skipper l'en-tête
+  const firstLine = lines[0].toLowerCase();
+  const hasHeader = firstLine.includes('algorithm') || firstLine.includes('n,') && isNaN(parseInt(lines[0]));
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  const rows = [];
+  for (const line of dataLines) {
+    const parts = line.split(',').map(p => p.trim());
+    if (parts.length < 4) continue;
+    const [n, algo, backend, time_ms] = parts;
+    const nVal = parseInt(n);
+    const tVal = parseFloat(time_ms);
+    if (isNaN(nVal) || isNaN(tVal)) continue;
+    rows.push({ n: nVal, algo: algo.toLowerCase(), backend: backend.toLowerCase(), time_ms: tVal });
+  }
+  return rows;
+}
+
+function buildDataMap(rows) {
+  const map = {}; // map[n][key] = time_ms, key = "cpu_nsquare" etc.
+  const Ns = [...new Set(rows.map(r => r.n))].sort((a,b) => a - b);
+
+  for (const r of rows) {
+    if (!map[r.n]) map[r.n] = {};
+    const key = `${r.backend}_${r.algo.replace('-','_')}`;
+    map[r.n][key] = r.time_ms;
+  }
+  return { map, Ns };
+}
+
+// ============================================================================
+// Affichage
+// ============================================================================
+
+const SERIES = [
+  { key: 'cpu_nsquare',    label: 'CPU N²',        color: 'var(--cpu-n2)', hex: '#f97316' },
+  { key: 'cpu_barnes_hut', label: 'CPU BH',         color: 'var(--cpu-bh)', hex: '#facc15' },
+  { key: 'gpu_nsquare',    label: 'GPU N²',         color: 'var(--gpu-n2)', hex: '#38bdf8' },
+  { key: 'gpu_barnes_hut', label: 'GPU BH',         color: 'var(--gpu-bh)', hex: '#4ade80' },
+];
+
+function fmt(ms) {
+  if (ms == null || isNaN(ms)) return '—';
+  if (ms >= 3600000) return (ms/3600000).toFixed(2) + ' h';
+  if (ms >= 60000)   return (ms/60000).toFixed(2)   + ' min';
+  if (ms >= 1000)    return (ms/1000).toFixed(2)     + ' s';
+  if (ms >= 1)       return ms.toFixed(1)            + ' ms';
+  return ms.toFixed(3) + ' ms';
+}
+
+function speedupBadge(ratio) {
+  if (ratio == null || isNaN(ratio)) return '—';
+  const cls = ratio >= 1 ? 'speedup' : 'speedup slowdown';
+  return `<span class="${cls}">${ratio >= 1 ? '×' : '÷'}${ratio >= 1 ? ratio.toFixed(1) : (1/ratio).toFixed(1)}</span>`;
+}
+
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode: 'index', intersect: false },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: '#0f0f1a',
+      borderColor: '#1e1e30',
+      borderWidth: 1,
+      titleColor: '#e2e2f0',
+      bodyColor: '#6b6b8a',
+      titleFont: { family: 'Space Mono' },
+      bodyFont:  { family: 'Space Mono' },
+      callbacks: {
+        label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`,
+      }
+    }
+  },
+  scales: {
+    x: {
+      grid:  { color: '#1e1e30' },
+      ticks: { color: '#6b6b8a', font: { family: 'Space Mono', size: 10 } },
+    },
+    y: {
+      grid:  { color: '#1e1e30' },
+      ticks: { color: '#6b6b8a', font: { family: 'Space Mono', size: 10 } },
+    }
+  }
+};
+
+function makeDatasets(Ns, map, keys) {
+  return keys.map(s => ({
+    label: s.label,
+    data: Ns.map(n => map[n]?.[s.key] ?? null),
+    borderColor: s.hex,
+    backgroundColor: s.hex + '20',
+    pointBackgroundColor: s.hex,
+    pointRadius: 5,
+    pointHoverRadius: 7,
+    borderWidth: 2,
+    tension: 0.35,
+    spanGaps: false,
+  }));
+}
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+}
+
+function render(rows) {
+  destroyCharts();
+
+  const { map, Ns } = buildDataMap(rows);
+  const labels = Ns.map(n => n.toLocaleString());
+
+  // ── Chart 1 : linéaire ──────────────────────────────────────────────────
+  charts.linear = new Chart(document.getElementById('chart-linear'), {
+    type: 'line',
+    data: { labels, datasets: makeDatasets(Ns, map, SERIES) },
+    options: {
+      ...chartDefaults,
+      scales: {
+        ...chartDefaults.scales,
+        y: { ...chartDefaults.scales.y,
+          ticks: { ...chartDefaults.scales.y.ticks,
+            callback: v => fmt(v)
+          }
+        }
+      }
+    }
+  });
+
+  // ── Chart 2 : log ────────────────────────────────────────────────────────
+  charts.log = new Chart(document.getElementById('chart-log'), {
+    type: 'line',
+    data: { labels, datasets: makeDatasets(Ns, map, SERIES) },
+    options: {
+      ...chartDefaults,
+      scales: {
+        ...chartDefaults.scales,
+        y: { ...chartDefaults.scales.y,
+          type: 'logarithmic',
+          ticks: { ...chartDefaults.scales.y.ticks,
+            callback: v => fmt(v)
+          }
+        }
+      }
+    }
+  });
+
+  // ── Chart 3 : speedup GPU/CPU ────────────────────────────────────────────
+  const speedupN2 = Ns.map(n => {
+    const a = map[n]?.cpu_nsquare, b = map[n]?.gpu_nsquare;
+    return (a && b) ? a / b : null;
+  });
+  const speedupBH = Ns.map(n => {
+    const a = map[n]?.cpu_barnes_hut, b = map[n]?.gpu_barnes_hut;
+    return (a && b) ? a / b : null;
+  });
+
+  charts.speedup = new Chart(document.getElementById('chart-speedup'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'N² GPU/CPU', data: speedupN2, borderColor: '#f97316', backgroundColor: '#f9731620',
+          pointBackgroundColor: '#f97316', borderWidth: 2, tension: 0.35, pointRadius: 5 },
+        { label: 'BH GPU/CPU', data: speedupBH, borderColor: '#4ade80', backgroundColor: '#4ade8020',
+          pointBackgroundColor: '#4ade80', borderWidth: 2, tension: 0.35, pointRadius: 5 },
+        { label: 'Baseline ×1', data: Ns.map(() => 1),
+          borderColor: '#1e1e30', borderDash: [6,4], borderWidth: 1,
+          pointRadius: 0, fill: false },
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      plugins: { ...chartDefaults.plugins,
+        tooltip: { ...chartDefaults.plugins.tooltip,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ×${ctx.parsed.y?.toFixed(2) ?? '—'}` }
+        }
+      },
+      scales: {
+        ...chartDefaults.scales,
+        y: { ...chartDefaults.scales.y,
+          ticks: { ...chartDefaults.scales.y.ticks,
+            callback: v => `×${v}`
+          }
+        }
+      }
+    }
+  });
+
+  // ── Chart 4 : gain BH vs N² ──────────────────────────────────────────────
+  const gainCpu = Ns.map(n => {
+    const a = map[n]?.cpu_nsquare, b = map[n]?.cpu_barnes_hut;
+    return (a && b) ? a / b : null;
+  });
+  const gainGpu = Ns.map(n => {
+    const a = map[n]?.gpu_nsquare, b = map[n]?.gpu_barnes_hut;
+    return (a && b) ? a / b : null;
+  });
+
+  charts.bhGain = new Chart(document.getElementById('chart-bh-gain'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'BH/N² CPU', data: gainCpu, borderColor: '#facc15', backgroundColor: '#facc1520',
+          pointBackgroundColor: '#facc15', borderWidth: 2, tension: 0.35, pointRadius: 5 },
+        { label: 'BH/N² GPU', data: gainGpu, borderColor: '#38bdf8', backgroundColor: '#38bdf820',
+          pointBackgroundColor: '#38bdf8', borderWidth: 2, tension: 0.35, pointRadius: 5 },
+        { label: 'Baseline ×1', data: Ns.map(() => 1),
+          borderColor: '#1e1e30', borderDash: [6,4], borderWidth: 1,
+          pointRadius: 0, fill: false },
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      plugins: { ...chartDefaults.plugins,
+        tooltip: { ...chartDefaults.plugins.tooltip,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ×${ctx.parsed.y?.toFixed(2) ?? '—'}` }
+        }
+      },
+      scales: {
+        ...chartDefaults.scales,
+        y: { ...chartDefaults.scales.y,
+          type: 'logarithmic',
+          ticks: { ...chartDefaults.scales.y.ticks,
+            callback: v => `×${v}`
+          }
+        }
+      }
+    }
+  });
+
+  // ── Stat cards ─────────────────────────────────────────────────────────────
+  const lastN = Ns[Ns.length - 1];
+  const d = map[lastN] ?? {};
+
+  const statConfigs = [
+    { cls: 'c1', label: 'CPU N²',   val: fmt(d.cpu_nsquare),    sub: `N=${lastN.toLocaleString()}` },
+    { cls: 'c2', label: 'CPU BH',   val: fmt(d.cpu_barnes_hut), sub: `N=${lastN.toLocaleString()}` },
+    { cls: 'c3', label: 'GPU N²',   val: fmt(d.gpu_nsquare),    sub: `N=${lastN.toLocaleString()}` },
+    { cls: 'c4', label: 'GPU BH',   val: fmt(d.gpu_barnes_hut), sub: `N=${lastN.toLocaleString()}` },
+  ];
+
+  const sg = document.getElementById('stats-grid');
+  sg.innerHTML = statConfigs.map(s => `
+    <div class="stat-card ${s.cls}">
+      <div class="stat-label">${s.label} @ max N</div>
+      <div class="stat-value">${s.val}</div>
+      <div class="stat-sub">${s.sub} · 100 steps</div>
+    </div>
+  `).join('');
+
+  // ── Table ──────────────────────────────────────────────────────────────────
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = Ns.map(n => {
+    const d = map[n] ?? {};
+    const spN2 = d.cpu_nsquare && d.gpu_nsquare ? d.cpu_nsquare / d.gpu_nsquare : null;
+    const spBH = d.cpu_barnes_hut && d.gpu_barnes_hut ? d.cpu_barnes_hut / d.gpu_barnes_hut : null;
+    const gbCpu = d.cpu_nsquare && d.cpu_barnes_hut ? d.cpu_nsquare / d.cpu_barnes_hut : null;
+    const gbGpu = d.gpu_nsquare && d.gpu_barnes_hut ? d.gpu_nsquare / d.gpu_barnes_hut : null;
+    return `<tr>
+      <td>${n.toLocaleString()}</td>
+      <td>${fmt(d.cpu_nsquare)}</td>
+      <td>${fmt(d.cpu_barnes_hut)}</td>
+      <td>${fmt(d.gpu_nsquare)}</td>
+      <td>${fmt(d.gpu_barnes_hut)}</td>
+      <td>${speedupBadge(spN2)}</td>
+      <td>${speedupBadge(spBH)}</td>
+      <td>${speedupBadge(gbCpu)}</td>
+      <td>${speedupBadge(gbGpu)}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Meta info ──────────────────────────────────────────────────────────────
+  document.getElementById('meta-info').innerHTML =
+    `${rows.length} mesures · ${Ns.length} valeurs de N<br>${Ns[0].toLocaleString()} → ${Ns[Ns.length-1].toLocaleString()} corps`;
+
+  // ── Show/hide ──────────────────────────────────────────────────────────────
+  document.getElementById('input-section').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('reset-btn').style.display = 'flex';
+}
+
+// ============================================================================
+// Interactions
+// ============================================================================
+
+function processRows(rows) {
+  if (!rows || rows.length === 0) {
+    alert('Aucune donnée valide trouvée dans le CSV.\nFormat attendu : n,algorithm,backend,time_ms');
+    return;
+  }
+  render(rows);
+}
+
+function parsePastedCSV() {
+  const text = document.getElementById('csv-paste').value.trim();
+  if (!text) { alert('Collez d\'abord le contenu CSV.'); return; }
+  processRows(parseCSV(text));
+}
+
+function loadDemo() {
+  document.getElementById('demo-note').textContent = '⚠ Données simulées — remplacez par vos vrais résultats';
+  processRows(parseCSV(DEMO_DATA));
+}
+
+function reset() {
+  destroyCharts();
+  document.getElementById('input-section').style.display = 'block';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('reset-btn').style.display = 'none';
+  document.getElementById('csv-paste').value = '';
+  document.getElementById('meta-info').textContent = 'Chargez un CSV pour commencer';
+}
+
+// ── File input ──
+document.getElementById('file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => processRows(parseCSV(ev.target.result));
+  reader.readAsText(file);
+});
+
+// ── Drag & drop ──
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => processRows(parseCSV(ev.target.result));
+  reader.readAsText(file);
+});
+</script>
+</body>
+</html>
