@@ -39,7 +39,9 @@ impl Default for SimulationConfig {
 }
 
 impl SimulationConfig {
-    /// @brief Validates the configuration
+    /// @brief Validates the configuration.
+    ///
+    /// @return Ok if all parameters are valid, Err with description otherwise
     pub fn validate(&self) -> Result<(), String> {
         if self.num_bodies == 0 {
             return Err("Number of bodies must be greater than 0".to_string());
@@ -63,9 +65,10 @@ impl SimulationConfig {
     }
 }
 
-/// @brief Runs a headless simulation
+/// @brief Runs a headless simulation.
 ///
 /// @param config Simulation configuration
+/// @return Ok on completion, Err with description on invalid config
 pub fn run_headless(config: SimulationConfig) -> Result<(), String> {
     // Validate configuration
     config.validate()?;

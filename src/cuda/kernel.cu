@@ -1,7 +1,7 @@
-// kernel.cu - CUDA kernels for N-body simulation
+// kernel.cu — CUDA kernels for N-body simulation
 //
-// CORRECTION: cuda_compute_forces_nsquare accepte maintenant G comme paramètre
-// (mod.rs le passait déjà, mais kernel.cu l'ignorait → comportement indéfini)
+// Provides N² all-pairs force computation and Euler integration kernels,
+// with a C interface for Rust FFI.
 
 #include <cuda_runtime.h>
 #include <math.h>
@@ -52,7 +52,7 @@ __global__ void compute_forces_nsquare(const float *__restrict__ pos_x,
     dist_sq += epsilon_sq;
 
     if (dist_sq > 1e-10f) {
-      float inv_r  = rsqrtf(dist_sq);
+      float inv_r = rsqrtf(dist_sq);
       float inv_r3 = inv_r * inv_r * inv_r;
       float factor = G * masses[j] * inv_r3;
       factor = fminf(factor, 1e10f);
@@ -126,22 +126,25 @@ void cuda_compute_forces_nsquare(const float *pos_x, const float *pos_y,
 
   size_t size = n * sizeof(float);
 
-  cudaMalloc(&d_pos_x,  size); cudaMalloc(&d_pos_y,  size);
+  cudaMalloc(&d_pos_x, size);
+  cudaMalloc(&d_pos_y, size);
   cudaMalloc(&d_masses, size);
-  cudaMalloc(&d_acc_x,  size); cudaMalloc(&d_acc_y,  size);
+  cudaMalloc(&d_acc_x, size);
+  cudaMalloc(&d_acc_y, size);
 #ifdef VEC3
-  cudaMalloc(&d_pos_z,  size); cudaMalloc(&d_acc_z,  size);
+  cudaMalloc(&d_pos_z, size);
+  cudaMalloc(&d_acc_z, size);
 #endif
 
-  cudaMemcpy(d_pos_x,  pos_x,  size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_pos_y,  pos_y,  size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_pos_x, pos_x, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_pos_y, pos_y, size, cudaMemcpyHostToDevice);
   cudaMemcpy(d_masses, masses, size, cudaMemcpyHostToDevice);
 #ifdef VEC3
-  cudaMemcpy(d_pos_z,  pos_z,  size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_pos_z, pos_z, size, cudaMemcpyHostToDevice);
 #endif
 
   int blockSize = 256;
-  int gridSize  = (n + blockSize - 1) / blockSize;
+  int gridSize = (n + blockSize - 1) / blockSize;
 
   compute_forces_nsquare<<<gridSize, blockSize>>>(d_pos_x, d_pos_y,
 #ifdef VEC3
@@ -161,10 +164,14 @@ void cuda_compute_forces_nsquare(const float *pos_x, const float *pos_y,
   cudaMemcpy(acc_z, d_acc_z, size, cudaMemcpyDeviceToHost);
 #endif
 
-  cudaFree(d_pos_x);  cudaFree(d_pos_y);  cudaFree(d_masses);
-  cudaFree(d_acc_x);  cudaFree(d_acc_y);
+  cudaFree(d_pos_x);
+  cudaFree(d_pos_y);
+  cudaFree(d_masses);
+  cudaFree(d_acc_x);
+  cudaFree(d_acc_y);
 #ifdef VEC3
-  cudaFree(d_pos_z);  cudaFree(d_acc_z);
+  cudaFree(d_pos_z);
+  cudaFree(d_acc_z);
 #endif
 }
 
@@ -189,28 +196,32 @@ void cuda_update_bodies(float *pos_x, float *pos_y,
 
   size_t size = n * sizeof(float);
 
-  cudaMalloc(&d_pos_x,  size); cudaMalloc(&d_pos_y,  size);
-  cudaMalloc(&d_vel_x,  size); cudaMalloc(&d_vel_y,  size);
-  cudaMalloc(&d_acc_x,  size); cudaMalloc(&d_acc_y,  size);
+  cudaMalloc(&d_pos_x, size);
+  cudaMalloc(&d_pos_y, size);
+  cudaMalloc(&d_vel_x, size);
+  cudaMalloc(&d_vel_y, size);
+  cudaMalloc(&d_acc_x, size);
+  cudaMalloc(&d_acc_y, size);
 #ifdef VEC3
-  cudaMalloc(&d_pos_z,  size); cudaMalloc(&d_vel_z,  size);
-  cudaMalloc(&d_acc_z,  size);
+  cudaMalloc(&d_pos_z, size);
+  cudaMalloc(&d_vel_z, size);
+  cudaMalloc(&d_acc_z, size);
 #endif
 
-  cudaMemcpy(d_pos_x,  pos_x,  size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_pos_y,  pos_y,  size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_vel_x,  vel_x,  size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_vel_y,  vel_y,  size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_acc_x,  acc_x,  size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_acc_y,  acc_y,  size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_pos_x, pos_x, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_pos_y, pos_y, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_vel_x, vel_x, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_vel_y, vel_y, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_acc_x, acc_x, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_acc_y, acc_y, size, cudaMemcpyHostToDevice);
 #ifdef VEC3
-  cudaMemcpy(d_pos_z,  pos_z,  size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_vel_z,  vel_z,  size, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_acc_z,  acc_z,  size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_pos_z, pos_z, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_vel_z, vel_z, size, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_acc_z, acc_z, size, cudaMemcpyHostToDevice);
 #endif
 
   int blockSize = 256;
-  int gridSize  = (n + blockSize - 1) / blockSize;
+  int gridSize = (n + blockSize - 1) / blockSize;
 
   update_bodies<<<gridSize, blockSize>>>(d_pos_x, d_pos_y,
 #ifdef VEC3
@@ -228,20 +239,25 @@ void cuda_update_bodies(float *pos_x, float *pos_y,
 
   cudaDeviceSynchronize();
 
-  cudaMemcpy(pos_x,  d_pos_x,  size, cudaMemcpyDeviceToHost);
-  cudaMemcpy(pos_y,  d_pos_y,  size, cudaMemcpyDeviceToHost);
-  cudaMemcpy(vel_x,  d_vel_x,  size, cudaMemcpyDeviceToHost);
-  cudaMemcpy(vel_y,  d_vel_y,  size, cudaMemcpyDeviceToHost);
+  cudaMemcpy(pos_x, d_pos_x, size, cudaMemcpyDeviceToHost);
+  cudaMemcpy(pos_y, d_pos_y, size, cudaMemcpyDeviceToHost);
+  cudaMemcpy(vel_x, d_vel_x, size, cudaMemcpyDeviceToHost);
+  cudaMemcpy(vel_y, d_vel_y, size, cudaMemcpyDeviceToHost);
 #ifdef VEC3
-  cudaMemcpy(pos_z,  d_pos_z,  size, cudaMemcpyDeviceToHost);
-  cudaMemcpy(vel_z,  d_vel_z,  size, cudaMemcpyDeviceToHost);
+  cudaMemcpy(pos_z, d_pos_z, size, cudaMemcpyDeviceToHost);
+  cudaMemcpy(vel_z, d_vel_z, size, cudaMemcpyDeviceToHost);
 #endif
 
-  cudaFree(d_pos_x);  cudaFree(d_pos_y);
-  cudaFree(d_vel_x);  cudaFree(d_vel_y);
-  cudaFree(d_acc_x);  cudaFree(d_acc_y);
+  cudaFree(d_pos_x);
+  cudaFree(d_pos_y);
+  cudaFree(d_vel_x);
+  cudaFree(d_vel_y);
+  cudaFree(d_acc_x);
+  cudaFree(d_acc_y);
 #ifdef VEC3
-  cudaFree(d_pos_z);  cudaFree(d_vel_z);  cudaFree(d_acc_z);
+  cudaFree(d_pos_z);
+  cudaFree(d_vel_z);
+  cudaFree(d_acc_z);
 #endif
 }
 

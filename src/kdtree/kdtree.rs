@@ -47,6 +47,8 @@ impl KdTree {
 
     /// @brief Creates a new empty KdTree.
     ///
+    /// @param theta Barnes-Hut opening angle squared threshold
+    /// @param epsilon Softening length for force computation
     /// @return A new KdTree instance with no nodes
     pub fn new(theta: f32, epsilon: f32) -> Self {
         Self {

@@ -39,7 +39,13 @@ pub struct State {
 }
 
 impl State {
-    /// @brief Creates a new rendering state
+    /// @brief Creates a new rendering state.
+    ///
+    /// Initializes wgpu device, surface, render pipeline, camera, and bodies.
+    ///
+    /// @param window Shared window handle
+    /// @param gui_config Simulation configuration
+    /// @return Initialized State or error
     pub async fn new(window: Arc<Window>, gui_config: GuiConfig) -> anyhow::Result<State> {
         let size = window.inner_size();
 

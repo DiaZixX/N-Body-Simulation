@@ -1,5 +1,5 @@
 //! @file mod.rs
-//! @brief CUDA integration module
+//! @brief CUDA FFI bindings and public GPU API
 
 use crate::body::Body;
 
@@ -98,11 +98,11 @@ unsafe extern "C" {
     );
 }
 
-// ============================================================================
-// Public API
-// ============================================================================
-
-/// @brief Computes forces using CUDA N² algorithm
+/// @brief Computes gravitational forces using the CUDA N² algorithm.
+///
+/// @param bodies Mutable slice of bodies; accelerations are updated in place
+/// @param epsilon Softening length
+/// @param G Gravitational constant
 pub fn compute_forces_cuda(bodies: &mut [Body], epsilon: f32, G: f32) {
     let n = bodies.len() as i32;
     let epsilon_sq = epsilon * epsilon;
@@ -162,7 +162,12 @@ pub fn compute_forces_cuda(bodies: &mut [Body], epsilon: f32, G: f32) {
     }
 }
 
-/// @brief Computes forces using CUDA Barnes-Hut algorithm
+/// @brief Computes gravitational forces using the CUDA Barnes-Hut algorithm.
+///
+/// @param bodies Mutable slice of bodies; accelerations are updated in place
+/// @param theta Barnes-Hut opening angle
+/// @param epsilon Softening length
+/// @param G Gravitational constant
 pub fn compute_forces_barnes_hut_cuda(bodies: &mut [Body], theta: f32, epsilon: f32, G: f32) {
     let n = bodies.len() as i32;
 
@@ -223,7 +228,10 @@ pub fn compute_forces_barnes_hut_cuda(bodies: &mut [Body], theta: f32, epsilon: 
     }
 }
 
-/// @brief Updates bodies using CUDA
+/// @brief Updates body positions and velocities using CUDA (Euler integration).
+///
+/// @param bodies Mutable slice of bodies to integrate
+/// @param dt Time step
 pub fn update_bodies_cuda(bodies: &mut [Body], dt: f32) {
     let n = bodies.len() as i32;
 

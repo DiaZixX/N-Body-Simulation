@@ -1,5 +1,5 @@
 //! @file main.rs
-//! @brief Main entry point for the n-body simulation
+//! @brief Entry point — CLI parsing and subcommand dispatch
 
 use clap::{Parser, Subcommand};
 use n_body_simulation::{GuiConfig, SimulationConfig, run, run_headless};
@@ -73,6 +73,10 @@ enum Commands {
     },
 }
 
+/// @brief Application entry point.
+///
+/// Parses CLI arguments and dispatches to GUI or headless mode.
+/// @return Ok on success, Err on failure
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 

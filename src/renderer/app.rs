@@ -21,6 +21,9 @@ pub struct App {
 
 impl App {
     /// @brief Creates a new application
+    ///
+    /// @param gui_config GUI simulation configuration
+    /// @return New App instance
     pub fn new(gui_config: GuiConfig) -> Self {
         Self {
             state: None,
@@ -85,9 +88,10 @@ impl ApplicationHandler<State> for App {
     }
 }
 
-/// @brief Runs the application
+/// @brief Runs the application event loop.
 ///
-/// @return Result indicating success or error
+/// @param gui_config GUI simulation configuration
+/// @return Ok on clean exit, Err on failure
 pub fn run(gui_config: GuiConfig) -> anyhow::Result<()> {
     env_logger::init();
 

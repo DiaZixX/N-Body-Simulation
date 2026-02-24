@@ -1,5 +1,5 @@
 //! @file lib.rs
-//! @brief Library entry point for n-body simulation
+//! @brief Public library API — re-exports all major types and functions:w
 
 pub mod body;
 pub mod geom;
