@@ -13,8 +13,7 @@ A gravitational N-body simulator written in Rust with optional GPU acceleration 
 5. [Building](#building)
 6. [Usage](#usage)
 7. [Benchmark](#benchmark)
-8. [Project Structure](#project-structure)
-9. [Performance Notes](#performance-notes)
+8. [Performance Notes](#performance-notes)
 
 ---
 
@@ -64,55 +63,88 @@ To prevent numerical singularities when two bodies approach each other closely, 
 ## Architecture
 
 ```
-src/
-  main.rs          Entry point, CLI parsing (clap)
-  lib.rs           Public API, re-exports
-  headless.rs      Headless simulation runner
-  simul.rs         Body data structures, integrator, N^2 CPU kernel
-  kdtree.rs        Barnes-Hut tree (CPU construction and traversal)
-  cuda/
-    mod.rs         Rust FFI bindings to CUDA functions
-    kernel.cu      GPU N^2 kernel (shared memory tiling)
-    barnes_hut.cu  GPU Barnes-Hut: CPU tree construction + GPU force kernel
-  gui/             Graphical interface (winit + wgpu or similar)
-
-benchmark/
-  benchmark.sh     Shell script: compiles CPU and GPU binaries, runs all
-                   combinations, writes benchmark_results.csv
-  benchmark_viz.html  Standalone HTML page to visualize the CSV results
+n-body-simulation/
+  Cargo.toml
+  build.rs                      Invokes nvcc to compile .cu files via cc-rs
+  README.md
+  COMMANDS.md
+  src/
+    main.rs                     Entry point, CLI parsing (clap)
+    lib.rs                      Public API, re-exports
+    headless.rs                 Headless simulation runner
+    body/
+      body.rs                   Body struct: position, velocity, acceleration, mass
+      mod.rs
+    geom/
+      vec2.rs                   2D vector type
+      vec3.rs                   3D vector type
+      vector.rs                 Shared vector trait
+      mod.rs
+    kdtree/
+      kdtree.rs                 Barnes-Hut tree: construction and CPU traversal
+      kdcell.rs                 Bounding cell geometry
+      node.rs                   Tree node definition
+      mod.rs
+    simul/
+      compute.rs                N-squared CPU force kernel
+      energy.rs                 Kinetic and potential energy computation
+      generate.rs               Initial condition generators (uniform disc, etc.)
+      stats.rs                  Performance statistics and progress reporting
+      mod.rs
+    renderer/
+      state.rs                  wgpu render state
+      app.rs                    winit event loop and simulation step integration
+      camera.rs                 Camera and zoom controls
+      vertex.rs                 Vertex buffer layout
+      instance.rs               Per-body GPU instance data
+      shader.wgsl               WGSL vertex and fragment shaders
+      config.rs                 Renderer configuration
+      mod.rs
+    cuda/
+      mod.rs                    Rust FFI bindings (extern "C" declarations)
+      kernel.cu                 GPU N-squared kernel (shared memory tiling)
+      barnes_hut.cu             CPU tree construction + GPU force kernel
+                                (Morton sort, compact node struct, pinned memory)
+  benchmark/
+    benchmark.sh                Compiles CPU and GPU binaries, runs all
+                                combinations, writes benchmark_results.csv
+    benchmark_viz.html          Standalone HTML visualizer for the CSV results
+    benchmark_results.csv       Generated output, not committed
+  tests/
+    kdtree_tests.rs             Unit tests for the Barnes-Hut tree
+    vector_tests.rs             Unit tests for the vector types
 ```
 
 ### CPU vs GPU backends
 
 The backend is selected at compile time via Cargo feature flags:
 
-| Feature flag       | Backend      |
-|--------------------|--------------|
-| *(none)*           | CPU only     |
-| `--features cuda`  | GPU (CUDA)   |
-| `--features vec3`  | 3D mode      |
-| `--features vec2`  | 2D mode (default) |
+| Feature flag       | Effect                        |
+|--------------------|-------------------------------|
+| *(none)*           | CPU only                      |
+| `--features cuda`  | GPU force kernels via CUDA    |
+| `--features vec2`  | 2D simulation (default)       |
+| `--features vec3`  | 3D simulation                 |
 
-When compiled with `cuda`, both the N-squared and Barnes-Hut force computations run on the GPU. Tree construction in Barnes-Hut always runs on the CPU regardless of the feature flag.
+When compiled with `cuda`, both the N-squared and Barnes-Hut force computations run on the GPU. Tree construction in Barnes-Hut always runs on the CPU regardless of the feature flag. The `.cu` files are compiled by `build.rs` using `cc-rs`, which invokes `nvcc` with the appropriate `-DVEC2` or `-DVEC3` preprocessor definition.
 
 ### Data flow (Barnes-Hut GPU, one step)
 
 ```
-CPU: compute bounding box (O(N) sequential)
-CPU: sort bodies by Morton code (O(N) radix sort, 4 passes)
-CPU: insert bodies into quadtree in Morton order (O(N log N) sequential)
-CPU: propagate masses bottom-up (O(nodes) sequential, depth-first post-order)
-CPU: extract compact BHNodeGPU array (O(nodes))
+CPU: compute bounding box                  O(N), sequential
+CPU: sort bodies by Morton code            O(N), radix sort 4 passes
+CPU: insert bodies into quadtree           O(N log N), sequential
+CPU: propagate masses bottom-up            O(nodes), depth-first post-order
+CPU: extract compact BHNodeGPU array       O(nodes)
 PCIe: upload tree (pinned, async stream 1)
 PCIe: upload sorted positions (pinned, async stream 2)
-GPU: compute forces (N threads in parallel, O(log N) per thread)
+GPU: compute forces                        N threads in parallel, O(log N) per thread
 PCIe: download accelerations
-CPU: integrate positions and velocities (O(N))
+CPU: reorder accelerations to original indices
+CPU: integrate positions and velocities    O(N)
 ```
 
 ---
-
-## Requirements
 
 - Rust 1.70 or later
 - For GPU mode: CUDA toolkit (tested with CUDA 11.x and 12.x), an NVIDIA GPU with compute capability 7.5 or later (Turing architecture, RTX 2000 series and above)
@@ -185,32 +217,6 @@ Results are written to `benchmark/benchmark_results.csv`. Open `benchmark/benchm
 - Barnes-Hut gain over N-squared for each backend
 
 N-squared is skipped for N > 10,000 by default because the O(N^2) cost makes it impractical (a 100,000-body N-squared run at 100 steps would take several hours on CPU). For N between 1,000 and 10,000, the script runs fewer steps and scales the result proportionally.
-
----
-
-## Project Structure
-
-```
-n-body-simulation/
-  Cargo.toml
-  build.rs              Invokes nvcc to compile .cu files via cc-rs
-  README.md
-  COMMANDS.md           Full CLI reference
-  src/
-    main.rs
-    lib.rs
-    headless.rs
-    simul.rs
-    kdtree.rs
-    cuda/
-      mod.rs
-      kernel.cu
-      barnes_hut.cu
-  benchmark/
-    benchmark.sh
-    benchmark_viz.html
-    benchmark_results.csv   (generated, not committed)
-```
 
 ---
 
